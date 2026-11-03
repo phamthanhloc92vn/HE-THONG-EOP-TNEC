@@ -48,7 +48,6 @@ import {
   Paperclip,
   FileText,
   ArrowRight,
-  RefreshCw,
   X,
   AlertTriangle,
 } from "lucide-react";
@@ -227,13 +226,6 @@ export default function NewsPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={load}
-                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
-                title="Tải lại"
-              >
-                <RefreshCw size={15} />
-              </button>
               {canManage && (
                 <button
                   onClick={() => {
