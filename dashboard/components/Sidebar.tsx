@@ -39,7 +39,8 @@ import {
   Boxes,
   Truck,
   Gavel,
-  Scale
+  Scale,
+  FilePen
 } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
 import { useDepartments } from "@/lib/departments";
@@ -51,6 +52,7 @@ import { useTenantConfig } from "@/lib/tenantConfig";
 import { usePlan } from "@/lib/plan";
 import { useCurrentUser } from "@/lib/useCurrentUser";
 import { fetchPenaltyAccess, NO_PENALTY_ACCESS } from "@/lib/atldPenalties";
+import { usePdfEditLink } from "@/lib/pdfEditLink";
 
 // Quyền xử phạt của P. ATLĐ (quyết định mục con nào hiện). Nạp 1 lần mỗi phiên.
 // Cùng luật lọc với trang /an-toan-lao-dong: tab xử phạt cần pen.view, 3 tab kho
@@ -129,6 +131,11 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
   const deps = useDepartments();
   const pcNav = usePcNav();
   const isPathAllowed = (p: string) => (currentUser.loading ? true : currentUser.canPath(p));
+  // "PDF EDIT 1 CLICK": Admin / cờ can_manage_news vào trang /pdf-edit để sửa link;
+  // người khác bấm là mở thẳng link ngoài ở tab mới.
+  const { url: pdfEditUrl } = usePdfEditLink();
+  const canEditPdfLink = !currentUser.loading && (currentUser.isAdmin || currentUser.perms.canManageNews);
+  const isPdfEditActive = pathname === "/pdf-edit";
   // "Chấm công GPS" chỉ hiện cho Admin hoặc nhân sự thuộc một Ban điều hành.
   const showGpsCheckin = !currentUser.loading && (currentUser.isAdmin || deps.bdh.includes(currentUser.department));
 
@@ -430,6 +437,38 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
           return (
             <div key={item.href} className="space-y-2.5">
               {linkEl}
+              {canEditPdfLink ? (
+                <Link
+                  href="/pdf-edit"
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
+                    isPdfEditActive
+                      ? "bg-gradient-to-r from-[#005BAC] to-[#00AEEF] border-transparent text-white shadow-md shadow-blue-500/15"
+                      : "bg-slate-50/50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  }`}
+                >
+                  <FilePen size={15} className={isPdfEditActive ? "text-white" : "text-slate-500"} />
+                  <span>PDF EDIT 1 CLICK</span>
+                </Link>
+              ) : (
+                <a
+                  href={pdfEditUrl || "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    if (!pdfEditUrl) {
+                      e.preventDefault();
+                      alert("Chưa cấu hình link PDF EDIT 1 CLICK.");
+                      return;
+                    }
+                    setSidebarOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border bg-slate-50/50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <FilePen size={15} className="text-slate-500" />
+                  <span>PDF EDIT 1 CLICK</span>
+                </a>
+              )}
               {bookingAllowed && bookingGroup}
             </div>
           );
