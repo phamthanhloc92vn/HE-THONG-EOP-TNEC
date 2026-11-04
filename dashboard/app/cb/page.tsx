@@ -7897,9 +7897,6 @@ export default function CBPage() {
                         <span className="w-1.5 h-3.5 bg-emerald-600 rounded-full inline-block"></span>
                         Quy tắc Thưởng Lễ lớn theo Thâm niên
                       </h4>
-                      <p className="text-slate-500 text-[10px] font-semibold leading-relaxed">
-                        Thưởng lễ lớn (2/9, 30/4, Tết Dương Lịch...) gồm 4 mức phân phối dựa trên thâm niên làm việc thực tế, hỗ trợ điều chỉnh tay linh hoạt để trình Giám đốc phê duyệt:
-                      </p>
                       
                       <div className="grid grid-cols-2 gap-2.5">
                         <div className="p-3 bg-gradient-to-br from-emerald-50/40 to-teal-50/20 border border-emerald-100 rounded-xl text-center">
@@ -7918,10 +7915,6 @@ export default function CBPage() {
                           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Từ 5 năm trở lên</span>
                           <div className="text-sm font-black text-emerald-700 mt-0.5">2.000.000 đ</div>
                         </div>
-                      </div>
-                      
-                      <div className="bg-amber-50 border border-amber-150 p-2.5 rounded-lg text-amber-800 text-[10px] leading-relaxed">
-                        <strong>Chú ý:</strong> Hệ thống tự động gợi ý theo thâm niên. Người dùng có quyền thay đổi mức thưởng cho từng cá nhân (dropdown/nhập số) trực tiếp tại bảng thưởng trước khi phê duyệt.
                       </div>
                     </div>
                   </div>
