@@ -1,6 +1,6 @@
 "use client";
 
-// Link ngoài của mục "PDF EDIT 1 CLICK": bảng sidebar_links, key 'pdf_edit'
+// Link ngoài của mục "PDF edit 1 click": bảng sidebar_links, key 'pdf_edit'
 // (migration 161). XEM: mọi tài khoản. SỬA: Admin / cờ can_manage_news (RLS).
 
 import { useEffect, useState } from "react";

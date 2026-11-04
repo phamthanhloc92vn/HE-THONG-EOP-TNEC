@@ -131,7 +131,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
   const deps = useDepartments();
   const pcNav = usePcNav();
   const isPathAllowed = (p: string) => (currentUser.loading ? true : currentUser.canPath(p));
-  // "PDF EDIT 1 CLICK": Admin / cờ can_manage_news vào trang /pdf-edit để sửa link;
+  // "PDF edit 1 click": Admin / cờ can_manage_news vào trang /pdf-edit để sửa link;
   // người khác bấm là mở thẳng link ngoài ở tab mới.
   const { url: pdfEditUrl } = usePdfEditLink();
   const canEditPdfLink = !currentUser.loading && (currentUser.isAdmin || currentUser.perms.canManageNews);
@@ -448,7 +448,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
                   }`}
                 >
                   <FilePen size={15} className={isPdfEditActive ? "text-white" : "text-slate-500"} />
-                  <span>PDF EDIT 1 CLICK</span>
+                  <span>PDF edit 1 click</span>
                 </Link>
               ) : (
                 <a
@@ -458,7 +458,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
                   onClick={(e) => {
                     if (!pdfEditUrl) {
                       e.preventDefault();
-                      alert("Chưa cấu hình link PDF EDIT 1 CLICK.");
+                      alert("Chưa cấu hình link PDF edit 1 click.");
                       return;
                     }
                     setSidebarOpen(false);
@@ -466,7 +466,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
                   className="flex items-center gap-3 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border bg-slate-50/50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 >
                   <FilePen size={15} className="text-slate-500" />
-                  <span>PDF EDIT 1 CLICK</span>
+                  <span>PDF edit 1 click</span>
                 </a>
               )}
               {bookingAllowed && bookingGroup}

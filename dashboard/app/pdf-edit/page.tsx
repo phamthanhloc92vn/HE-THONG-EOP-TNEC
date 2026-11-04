@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================
-// /pdf-edit — trang cấu hình link mục "PDF EDIT 1 CLICK".
+// /pdf-edit — trang cấu hình link mục "PDF edit 1 click".
 // Chỉ Admin / cờ can_manage_news được đưa vào trang này từ sidebar (người khác
 // bấm mục là mở thẳng link ở tab mới). Ai lạc vào đây mà không có quyền thì
 // chỉ thấy nút mở link.
@@ -36,7 +36,7 @@ export default function PdfEditPage() {
     <div className="flex min-h-screen bg-[#F7F9FC] relative">
       <Sidebar />
       <div className="ml-60 flex-1 flex flex-col min-w-0">
-        <Header title="PDF EDIT 1 CLICK" />
+        <Header title="PDF edit 1 click" />
 
         <main className="flex-1 p-8 space-y-6 overflow-y-auto">
           <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 border border-slate-200/60 rounded-2xl shadow-sm">
@@ -44,7 +44,7 @@ export default function PdfEditPage() {
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#005BAC] to-[#00AEEF] flex items-center justify-center text-white">
                 <FilePen size={18} />
               </div>
-              <p className="text-sm font-black text-slate-800">PDF EDIT 1 CLICK</p>
+              <p className="text-sm font-black text-slate-800">PDF edit 1 click</p>
             </div>
             <a
               href={url || "#"}
@@ -54,7 +54,7 @@ export default function PdfEditPage() {
               className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-[#005BAC] to-[#00AEEF] rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg transition-all active:scale-[0.99] ${url ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
             >
               <ExternalLink size={14} />
-              Mở PDF EDIT
+              Mở PDF edit
             </a>
           </div>
 
