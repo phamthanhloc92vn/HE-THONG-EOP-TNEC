@@ -795,6 +795,8 @@ export default function CBPage() {
   const [travels, setTravels] = useState<any[]>(MOCK_TRAVELS);
   const [editingTravelId, setEditingTravelId] = useState<string | null>(null);
   const [canDeleteTravel, setCanDeleteTravel] = useState(false);
+  // Xoá giải trình ĐÃ DUYỆT / bất kỳ trạng thái: chỉ Admin + cờ can_view_salary (C&B).
+  const [canDeleteAnyJustification, setCanDeleteAnyJustification] = useState(false);
   const [canDeleteRegime, setCanDeleteRegime] = useState(false);
 
   // Định mức phụ cấp (allowance_policies) + trạng thái sửa tại chỗ
@@ -3703,6 +3705,7 @@ export default function CBPage() {
       // can_view_salary_caller(), mở mỗi ở đây thì tab Hợp đồng hiện rỗng.
       const fullAccess = !!(isAdmin || perms.canViewSalary || perms.canViewAllRequests);
       setHasFullAccess(fullAccess);
+      setCanDeleteAnyJustification(!!(isAdmin || perms.canViewSalary));
 
       // Xóa lịch trình công tác & xem bảng tổng hợp ngày công/thư mục lưu trữ chấm công:
       // Admin hoặc cờ can_view_attendance_imports
@@ -6399,7 +6402,9 @@ export default function CBPage() {
                         ) : (
                           filteredExplanations.map((e, idx) => {
                             const canApprove = hasFullAccess || (currentUser && currentUser.name === e.approver);
-                            const canDelete = hasFullAccess || (currentUser && currentUser.name === e.name);
+                            // Admin/cờ C&B xoá được mọi bản ghi; người lập chỉ tự xoá khi còn chờ duyệt.
+                            const isPending = !e.status || e.status === "Chưa duyệt" || e.status === "Chờ duyệt";
+                            const canDelete = canDeleteAnyJustification || (isPending && !!currentUser && currentUser.name === e.name);
                             const recordId = e.id || idx;
                             return (
                               <tr key={recordId} className="hover:bg-slate-50/50">
