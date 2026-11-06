@@ -20,7 +20,7 @@ import {
 import {
   type AiSource, type AiItem, AI_MODELS, DEFAULT_AI_MODEL, MAX_SOURCE_BYTES,
   loadAiConfig, saveAiConfig, extractFromSource, findDup, dupPoolFromRows, sourceKindOf,
-  findMatch, identityKey, mergeInputs, overlayOnRow,
+  findMatch, identityKey, mergeInputs, overlayOnRow, findTaxCodeByName, sameCompany, taxSearchArea,
 } from "@/lib/partnerAi";
 import {
   X, Sparkles, Settings2, Upload, FileText, Image as ImageIcon, FileSpreadsheet, Loader2, AlertCircle,
@@ -130,10 +130,50 @@ export default function PartnerAiImport({
   }, []);
 
   // Tự tra MST từng mục (tuần tự, nghỉ giữa các lần để không dồn dập vào nguồn miễn phí).
+  // Mục thiếu MST ("searching"): AI tìm theo tên + khu vực, rồi CHỈ điền khi nguồn tra cứu
+  // xác nhận MST đó đúng tên công ty; không chắc thì để trống.
   const runTaxChecks = useCallback(
-    async (list: AiItem[]) => {
+    async (list: AiItem[], key: string, aiModel: string) => {
       for (const it of list) {
         if (!aliveRef.current || cancelRef.current) return;
+        if (it.tax === "searching") {
+          let aiErr = "";
+          const found = await findTaxCodeByName(key, aiModel, it.input).catch((e) => {
+            console.warn("[partner] AI tìm MST lỗi:", e);
+            aiErr = aiErrorMessage(e);
+            return "";
+          });
+          const r = found ? await lookupTax(found) : null;
+          if (!aliveRef.current) return;
+          const note = aiErr
+            ? `AI tìm MST lỗi: ${aiErr}`
+            : !found
+              ? "AI không tìm được MST chắc chắn theo tên + khu vực."
+              : !r?.ok
+                ? `AI tìm được MST ${found} nhưng chưa tra lại được (${r?.error || "nguồn tra cứu lỗi"}), nên chưa điền.`
+                : !r.found
+                  ? `AI tìm được MST ${found} nhưng nguồn tra cứu không có, nên chưa điền.`
+                  : `AI tìm được MST ${found} nhưng tên ở nguồn tra cứu là "${r.name || "?"}", không khớp, nên chưa điền.`;
+          if (r?.ok && r.found && sameCompany(r.name, it.input.name))
+            patchItem(it.id, (cur) =>
+              cur.input.tax_code.trim()
+                ? { tax: "none" } // người dùng đã tự gõ MST trong lúc chờ
+                : {
+                    tax: "done",
+                    taxByAi: true,
+                    input: {
+                      ...cur.input,
+                      tax_code: found,
+                      tax_status: r.status || "",
+                      tax_checked_at: r.status ? r.checkedAt : "",
+                      address: cur.input.address.trim() ? cur.input.address : r.address || "",
+                    },
+                  }
+            );
+          else patchItem(it.id, { tax: "none", taxNote: note });
+          await new Promise((res) => setTimeout(res, 350));
+          continue;
+        }
         const code = cleanTaxCode(it.input.tax_code);
         if (!code) continue;
         const r = await lookupTax(code);
@@ -219,7 +259,9 @@ export default function PartnerAiImport({
       }
       const item: AiItem = {
         id: uid(), source: g.src.name, input: g.input, uncertain: g.uncertain, dup: null, matchId: null, matchName: null, merged: 0,
-        selected: true, status: "idle", tax: g.input.tax_code ? "pending" : "none",
+        selected: true, status: "idle",
+        tax: g.input.tax_code ? "pending" : apiKey.trim() && taxSearchArea(g.input) ? "searching" : "none",
+        taxNote: !g.input.tax_code && apiKey.trim() && !taxSearchArea(g.input) ? "Chưa có địa chỉ/tỉnh thành nên AI không tìm MST." : undefined,
       };
       if (!overwrite) {
         item.dup = findDup(g.input, pool);
@@ -251,7 +293,7 @@ export default function PartnerAiImport({
     setPasted("");
     setRunning(false);
     setProgress("");
-    runTaxChecks(created.filter((c) => c.tax === "pending"));
+    runTaxChecks(created.filter((c) => c.tax === "pending" || c.tax === "searching"), apiKey.trim(), model);
   }
 
   // ─── Lưu ───
@@ -577,7 +619,10 @@ function ResultRow({ it, selectable, onToggle, onEdit, onRemove }: { it: AiItem;
           {lv === "red" && <span className="flex items-center gap-1 text-[11px] font-extrabold text-rose-600"><AlertTriangle size={12} /> Cờ đỏ MST — {taxStatusText(v.tax_status)}</span>}
           {lv === "ok" && <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600"><ShieldCheck size={12} /> MST đang hoạt động{v.tax_checked_at && ` · ${formatCheckedDate(v.tax_checked_at)}`}</span>}
           {lv === "unknown" && v.tax_status && <span className="text-[11px] font-bold text-amber-600">MST: {taxStatusText(v.tax_status)}</span>}
-          {it.tax === "pending" && <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-400"><Loader2 size={11} className="animate-spin" /> Đang kiểm tra MST…</span>}
+          {it.taxByAi && <span className="text-[11px] font-semibold text-sky-600">MST do AI tìm theo tên + khu vực, đã đối chiếu tên</span>}
+          {it.taxNote && <span className="text-[11px] font-semibold text-amber-600">{it.taxNote}</span>}
+          {it.tax === "searching" &&<span className="flex items-center gap-1 text-[11px] font-semibold text-slate-400"><Loader2 size={11} className="animate-spin" /> AI đang tìm MST theo tên…</span>}
+          {it.tax === "pending" &&<span className="flex items-center gap-1 text-[11px] font-semibold text-slate-400"><Loader2 size={11} className="animate-spin" /> Đang kiểm tra MST…</span>}
           {it.tax === "notfound" && <span className="text-[11px] font-semibold text-slate-400">Nguồn tra cứu không có MST này</span>}
           {it.tax === "error" && <span className="text-[11px] font-semibold text-slate-400">Chưa tra được MST</span>}
           {it.uncertain.length > 0 && (

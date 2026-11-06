@@ -24,6 +24,7 @@ import {
   inputFromRow,
   cleanTaxCode,
   REGION_ORDER,
+  REGION_LABELS,
 } from "./partnerDirectory";
 import { normalizeName } from "./approvers";
 import { findProvinces, regionsFromWords, norm as vnNorm } from "./vnRegions";
@@ -131,7 +132,12 @@ export type AiItem = {
   selected: boolean;
   status: "idle" | "saving" | "saved" | "error";
   error?: string;
-  tax: "none" | "pending" | "done" | "notfound" | "error";
+  // "searching" = nguồn không có MST, AI đang tìm theo tên + khu vực (xem findTaxCodeByName).
+  tax: "none" | "searching" | "pending" | "done" | "notfound" | "error";
+  // MST do AI tìm trên web (đã đối chiếu tên với nguồn tra cứu), không phải bóc từ nguồn.
+  taxByAi?: boolean;
+  // Vì sao AI tìm MST không điền được (để người dùng biết mà tự kiểm tra).
+  taxNote?: string;
 };
 
 export const IMAGE_EXT = /\.(png|jpe?g|webp|gif|bmp)$/i;
@@ -868,6 +874,44 @@ export async function parseSheetLocal(file: File, kindHint: PartnerKind | "auto"
   if (unused.size) parts.push(`cột chưa dùng: ${Array.from(unused).slice(0, 8).join(", ")}${unused.size > 8 ? "…" : ""}`);
   return { ok: true, items, info: parts.join("; ") };
 }
+// ─── Tìm MST theo tên công ty + khu vực (AI tìm trên web) ───
+// Chỉ tìm khi biết khu vực (địa chỉ / tỉnh thành / miền) để không lấy nhầm công ty trùng tên nơi khác.
+// Trả về MST ứng viên hoặc "" — nơi gọi PHẢI tra lại MST và so tên (sameCompany) trước khi điền.
+export function taxSearchArea(input: PartnerInput): string {
+  return [input.address, input.provinces.join(", "), input.regions.map((r) => REGION_LABELS[r]).join(", ")]
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(" | ");
+}
+
+export async function findTaxCodeByName(apiKey: string, model: string, input: PartnerInput): Promise<string> {
+  const area = taxSearchArea(input);
+  if (!input.name.trim() || !area) return "";
+  const resp = await client(apiKey).responses.create({
+    model,
+    tools: [{ type: "web_search" }],
+    input:
+      `Tìm mã số thuế (MST) của doanh nghiệp Việt Nam sau.\n` +
+      `Tên: ${input.name.trim()}\nKhu vực / địa chỉ: ${area}\n\n` +
+      `Chỉ nhận khi tên doanh nghiệp khớp và trụ sở nằm đúng khu vực trên. Nếu không chắc chắn, có nhiều doanh nghiệp ` +
+      `cùng tên mà không phân biệt được, hoặc không tìm thấy thì trả lời KHONG. ` +
+      `Chỉ trả lời đúng một dòng: MST (10 số, hoặc 10 số-3 số cho chi nhánh) hoặc KHONG.`,
+    reasoning: { effort: REASONING_EFFORT },
+  });
+  const m = (resp.output_text || "").match(/\b\d{10}(?:-\d{3})?\b/);
+  return m ? m[0] : "";
+}
+
+// Cùng một doanh nghiệp: bỏ dấu, bỏ loại hình (công ty, cổ phần, TNHH…) rồi so phần tên riêng.
+const LEGAL_FORM =
+  /\b(cong ty|cty|co phan|cp|tnhh|trach nhiem huu han|mot thanh vien|mtv|hai thanh vien tro len|tap doan|doanh nghiep tu nhan|dntn|hop tac xa|htx)\b/g;
+const coreName = (s: string) =>
+  normalizeName(s).replace(/[^a-z0-9 ]/g, " ").replace(LEGAL_FORM, " ").replace(/\s+/g, " ").trim();
+export function sameCompany(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = coreName(a || "");
+  return !!x && x === coreName(b || "");
+}
+
 // ─── Chạy một nguồn -> danh sách đối tác ───
 export type ExtractOutcome = {
   items: { input: PartnerInput; uncertain: string[] }[];
