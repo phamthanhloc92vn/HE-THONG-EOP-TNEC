@@ -61,6 +61,7 @@ export default function AtldIssueTab({ canEdit, canApprove }: { canEdit: boolean
   const [status, setStatus] = useState<StatusFilter>(() => (initialParam("status") as StatusFilter) || "all");
   const [from, setFrom] = useState(() => initialParam("from"));
   const [to, setTo] = useState(() => initialParam("to"));
+  const [bdh, setBdh] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // approver = TP/PP / Admin sửa nội dung ghi nhầm (145) — kể cả phiếu đã duyệt.
   const [issueModal, setIssueModal] = useState<{ id: string | null; approver?: boolean } | null>(null);
@@ -112,6 +113,7 @@ export default function AtldIssueTab({ canEdit, canApprove }: { canEdit: boolean
       rows.filter((r) => {
         if (from && r.ngay < from) return false;
         if (to && r.ngay > to) return false;
+        if (bdh && (r.bdh_name || "").trim() !== bdh) return false;
         if (!query.trim()) return true;
         const codes = r.lines.map((l) => byId.get(l.item_id)?.code || "").join(" ");
         return matchesQuery(
@@ -119,7 +121,12 @@ export default function AtldIssueTab({ canEdit, canApprove }: { canEdit: boolean
           query
         );
       }),
-    [rows, from, to, query, byId]
+    [rows, from, to, bdh, query, byId]
+  );
+  // Danh sách BĐH lấy từ chính các phiếu đã có.
+  const bdhOptions = useMemo(
+    () => Array.from(new Set(rows.map((r) => (r.bdh_name || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "vi")),
+    [rows]
   );
   const filtered = useMemo(() => base.filter((r) => status === "all" || r.status === status), [base, status]);
 
@@ -133,7 +140,7 @@ export default function AtldIssueTab({ canEdit, canApprove }: { canEdit: boolean
     { key: "cancelled", label: "Đã huỷ", count: count("cancelled") },
   ];
   const tongDaDuyet = base.filter((r) => r.status === "posted").reduce((s, r) => s + r.tongCong, 0);
-  const filtering = !!(query || from || to || status !== "all");
+  const filtering = !!(query || from || to || bdh || status !== "all");
 
   // ─── Thao tác ───
   const info = (r: IssueRow) => ({
@@ -262,6 +269,15 @@ export default function AtldIssueTab({ canEdit, canApprove }: { canEdit: boolean
           <span className="text-slate-300">–</span>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-7 bg-transparent text-xs font-semibold text-slate-700 focus:outline-none" aria-label="Đến ngày" />
         </div>
+        <span className="text-[11px] font-bold text-slate-500 sm:ml-2">BĐH</span>
+        <div className={`${CONTROL_BOX} px-2`}>
+          <select value={bdh} onChange={(e) => setBdh(e.target.value)} className="h-7 bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer" aria-label="Lọc theo Ban điều hành">
+            <option value="">Tất cả BĐH</option>
+            {bdhOptions.map((b) => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
+        </div>
         {filtering && (
           <button
             type="button"
@@ -270,6 +286,7 @@ export default function AtldIssueTab({ canEdit, canApprove }: { canEdit: boolean
               setStatus("all");
               setFrom("");
               setTo("");
+              setBdh("");
             }}
             className="h-9 text-[11px] font-bold text-[#005BAC] hover:underline cursor-pointer"
           >
