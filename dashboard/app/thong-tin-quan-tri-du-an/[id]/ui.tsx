@@ -62,17 +62,23 @@ export function PrimaryButton({
   onClick,
   busy,
   disabled,
+  tone = "blue",
 }: {
   children: ReactNode;
   onClick: () => void;
   busy?: boolean;
   disabled?: boolean;
+  tone?: "blue" | "green";
 }) {
+  const color =
+    tone === "green"
+      ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/15"
+      : "bg-[#005BAC] hover:bg-blue-700 shadow-blue-500/15";
   return (
     <button
       onClick={onClick}
       disabled={busy || disabled}
-      className="flex items-center gap-1.5 bg-[#005BAC] hover:bg-blue-700 disabled:opacity-60 text-white text-[11px] font-bold px-3.5 py-2 rounded-lg shadow-sm shadow-blue-500/15 transition-all active:scale-[0.98]"
+      className={`flex items-center gap-1.5 ${color} disabled:opacity-60 text-white text-[11px] font-bold px-3.5 py-2 rounded-lg shadow-sm transition-all active:scale-[0.98]`}
     >
       {busy && <Loader2 size={13} className="animate-spin" />}
       {children}

@@ -343,16 +343,16 @@ export default function MembersTab({ project, access }: { project: PcProject; ac
           canManage || members.length > 0 ? (
             <div className="flex gap-2">
               {canManage && (
-                <PrimaryButton busy={saving} onClick={addBlankRow}>
+                <PrimaryButton tone="green" busy={saving} onClick={addBlankRow}>
                   <Plus size={13} /> Thêm dòng mới
                 </PrimaryButton>
               )}
               {members.length > 0 && (
                 <>
-                  <PrimaryButton busy={exporting === "xlsx"} disabled={exporting !== null} onClick={() => runExport("xlsx")}>
+                  <PrimaryButton tone="green" busy={exporting === "xlsx"} disabled={exporting !== null} onClick={() => runExport("xlsx")}>
                     <FileSpreadsheet size={13} /> Tải Excel
                   </PrimaryButton>
-                  <PrimaryButton busy={exporting === "pdf"} disabled={exporting !== null} onClick={() => runExport("pdf")}>
+                  <PrimaryButton tone="green" busy={exporting === "pdf"} disabled={exporting !== null} onClick={() => runExport("pdf")}>
                     <FileDown size={13} /> Xuất PDF
                   </PrimaryButton>
                 </>
@@ -372,7 +372,7 @@ export default function MembersTab({ project, access }: { project: PcProject; ac
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
               <thead>
-                <tr className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 text-left whitespace-nowrap">
+                <tr className="bg-[#005BAC] text-[10px] font-extrabold uppercase tracking-wider text-white text-left whitespace-nowrap">
                   {canManage && <th className="w-5" />}
                   <th className="py-1.5 pr-2 w-8 text-center">STT</th>
                   <th className="py-1.5 px-1">Mã dự án</th>
