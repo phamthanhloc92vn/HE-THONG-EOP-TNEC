@@ -32,7 +32,7 @@ import EmployeePicker, { findEmployeeByEmail, listDirectoryDepartments, type Pic
 import MembersImport from "./MembersImport";
 import { buildMembersPdfDoc, type MembersPdfRow } from "./membersPdf";
 import { buildMembersWorkbook } from "./membersXlsx";
-import { Trash2, Loader2, UserPlus, FileDown, FileSpreadsheet, GripVertical } from "lucide-react";
+import { Trash2, Loader2, UserPlus, FileDown, FileSpreadsheet, GripVertical, Plus } from "lucide-react";
 
 type Draft = {
   unit_group: string;
@@ -44,7 +44,17 @@ type Draft = {
   status: PcMemberStatus;
 };
 
-type TextKey = "unit_group" | "project_role" | "duty" | "reports_to";
+type TextKey =
+  | "unit_group"
+  | "project_role"
+  | "duty"
+  | "reports_to"
+  // Chỉ gõ tay được ở dòng không gắn tài khoản (email trống), VD dòng "Thêm dòng mới".
+  | "name"
+  | "department"
+  | "title"
+  | "phone"
+  | "contact_email";
 
 export default function MembersTab({ project, access }: { project: PcProject; access: PcAccess }) {
   const canManage = access.can_manage_members;
@@ -145,6 +155,22 @@ export default function MembersTab({ project, access }: { project: PcProject; ac
     if (error) return setErr(pcErrorMessage(error));
     setPicked(null);
     setDraft((d) => ({ ...d, project_role: "", duty: "", reports_to: "" }));
+    load();
+  }
+
+  // Thêm 1 dòng trống ở cuối bảng để gõ tay (không chọn từ danh bạ, không gắn email).
+  async function addBlankRow() {
+    setSaving(true);
+    setErr(null);
+    const { error } = await supabase.from("pc_project_members").insert({
+      project_id: project.id,
+      sort_order: members.reduce((mx, m) => Math.max(mx, m.sort_order ?? 0), 0) + 1,
+      email: null,
+      role: "VIEW",
+      status: "JOINED",
+    });
+    setSaving(false);
+    if (error) return setErr(pcErrorMessage(error));
     load();
   }
 
@@ -294,14 +320,23 @@ export default function MembersTab({ project, access }: { project: PcProject; ac
       <Card
         title={`Thành viên dự án (${members.length})`}
         action={
-          members.length > 0 ? (
+          canManage || members.length > 0 ? (
             <div className="flex gap-2">
-              <PrimaryButton busy={exporting === "xlsx"} disabled={exporting !== null} onClick={() => runExport("xlsx")}>
-                <FileSpreadsheet size={13} /> Tải Excel
-              </PrimaryButton>
-              <PrimaryButton busy={exporting === "pdf"} disabled={exporting !== null} onClick={() => runExport("pdf")}>
-                <FileDown size={13} /> Xuất PDF
-              </PrimaryButton>
+              {canManage && (
+                <PrimaryButton busy={saving} onClick={addBlankRow}>
+                  <Plus size={13} /> Thêm dòng mới
+                </PrimaryButton>
+              )}
+              {members.length > 0 && (
+                <>
+                  <PrimaryButton busy={exporting === "xlsx"} disabled={exporting !== null} onClick={() => runExport("xlsx")}>
+                    <FileSpreadsheet size={13} /> Tải Excel
+                  </PrimaryButton>
+                  <PrimaryButton busy={exporting === "pdf"} disabled={exporting !== null} onClick={() => runExport("pdf")}>
+                    <FileDown size={13} /> Xuất PDF
+                  </PrimaryButton>
+                </>
+              )}
             </div>
           ) : null
         }
@@ -380,14 +415,33 @@ export default function MembersTab({ project, access }: { project: PcProject; ac
                       <td className="px-1 font-bold text-slate-700 whitespace-nowrap">{projectCode}</td>
                       <td className="px-1 text-slate-600 min-w-[160px]">{projectName}</td>
                       <td className="px-1">{textCell(m, "unit_group")}</td>
-                      <td className="px-1 text-slate-600 whitespace-nowrap">{m.department || "—"}</td>
-                      <td className="px-1 font-semibold text-slate-700 whitespace-nowrap">{m.name || m.email || "—"}</td>
-                      <td className="px-1 text-slate-600 whitespace-nowrap">{m.title || "—"}</td>
+                      {canManage && !m.email ? (
+                        <>
+                          <td className="px-1">{textCell(m, "department")}</td>
+                          <td className="px-1">{textCell(m, "name")}</td>
+                          <td className="px-1">{textCell(m, "title")}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-1 text-slate-600 whitespace-nowrap">{m.department || "—"}</td>
+                          <td className="px-1 font-semibold text-slate-700 whitespace-nowrap">{m.name || m.email || "—"}</td>
+                          <td className="px-1 text-slate-600 whitespace-nowrap">{m.title || "—"}</td>
+                        </>
+                      )}
                       <td className="px-1">{textCell(m, "project_role")}</td>
                       <td className="px-1">{textCell(m, "duty")}</td>
                       <td className="px-1">{textCell(m, "reports_to")}</td>
-                      <td className="px-1 text-slate-600 whitespace-nowrap font-mono">{m.phone || "—"}</td>
-                      <td className="px-1 text-slate-600 whitespace-nowrap">{m.contact_email || m.email || "Chưa có"}</td>
+                      {canManage && !m.email ? (
+                        <>
+                          <td className="px-1">{textCell(m, "phone")}</td>
+                          <td className="px-1">{textCell(m, "contact_email")}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-1 text-slate-600 whitespace-nowrap font-mono">{m.phone || "—"}</td>
+                          <td className="px-1 text-slate-600 whitespace-nowrap">{m.contact_email || m.email || "Chưa có"}</td>
+                        </>
+                      )}
                       <td className="px-1">
                         {canManage ? (
                           <select
@@ -451,6 +505,11 @@ const TEXT_COL_WIDTH: Record<TextKey, string> = {
   project_role: "min-w-[240px]",
   duty: "min-w-[260px]",
   reports_to: "min-w-[160px]",
+  name: "min-w-[150px]",
+  department: "min-w-[130px]",
+  title: "min-w-[130px]",
+  phone: "min-w-[110px]",
+  contact_email: "min-w-[180px]",
 };
 
 // Ô nhiều dòng tự cao theo nội dung (không bị cắt chữ như input 1 dòng).
