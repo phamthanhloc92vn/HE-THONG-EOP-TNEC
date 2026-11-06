@@ -32,7 +32,7 @@ import EmployeePicker, { findEmployeeByEmail, listDirectoryDepartments, type Pic
 import MembersImport from "./MembersImport";
 import { buildMembersPdfDoc, type MembersPdfRow } from "./membersPdf";
 import { buildMembersWorkbook } from "./membersXlsx";
-import { Trash2, Loader2, UserPlus, FileDown, FileSpreadsheet, GripVertical, Plus } from "lucide-react";
+import { Trash2, Loader2, UserPlus, FileDown, FileSpreadsheet, GripVertical, Plus, Pencil, X } from "lucide-react";
 
 type Draft = {
   unit_group: string;
@@ -80,6 +80,7 @@ export default function MembersTab({ project, access }: { project: PcProject; ac
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     let res = await supabase
@@ -172,6 +173,25 @@ export default function MembersTab({ project, access }: { project: PcProject; ac
     setSaving(false);
     if (error) return setErr(pcErrorMessage(error));
     load();
+  }
+
+  // Đổi người ở dòng `m` sang nhân sự khác (bút chì cạnh thùng rác) — giữ nguyên
+  // Nhóm đơn vị, Vai trò, Nhiệm vụ, Quản lý, Trạng thái, Quyền và vị trí dòng.
+  async function replaceMember(m: PcMember, emp: PickedEmployee) {
+    const email = (emp.email || "").toLowerCase() || null;
+    const sameName = (x: PcMember) => (x.name || "").trim().toLowerCase() === emp.name.trim().toLowerCase();
+    if (members.some((x) => x.id !== m.id && (email ? (x.email || "").toLowerCase() === email : !x.email && sameName(x))))
+      return setErr(`${emp.name} đã có trong danh sách thành viên.`);
+    setEditId(null);
+    setErr(null);
+    await patch(m, {
+      email,
+      name: emp.name || null,
+      department: emp.department && emp.department !== "Ngoài danh bạ" ? emp.department : m.department,
+      title: emp.role || null,
+      phone: emp.phone || null,
+      contact_email: emp.workEmail || email,
+    });
   }
 
   async function patch(m: PcMember, change: Partial<PcMember>) {
@@ -415,7 +435,21 @@ export default function MembersTab({ project, access }: { project: PcProject; ac
                       <td className="px-1 font-bold text-slate-700 whitespace-nowrap">{projectCode}</td>
                       <td className="px-1 text-slate-600 min-w-[160px]">{projectName}</td>
                       <td className="px-1">{textCell(m, "unit_group")}</td>
-                      {canManage && !m.email ? (
+                      {editId === m.id ? (
+                        <>
+                          <td className="px-1 text-slate-600 whitespace-nowrap">{m.department || "—"}</td>
+                          <td className="px-1 min-w-[220px]">
+                            <EmployeePicker
+                              value={null}
+                              onChange={(emp) => emp && replaceMember(m, emp)}
+                              bdhName={project.bdh_name}
+                              freeText="email"
+                              placeholder={`Đổi ${m.name || "người này"} sang…`}
+                            />
+                          </td>
+                          <td className="px-1 text-slate-600 whitespace-nowrap">{m.title || "—"}</td>
+                        </>
+                      ) : canManage && !m.email ? (
                         <>
                           <td className="px-1">{textCell(m, "department")}</td>
                           <td className="px-1">{textCell(m, "name")}</td>
@@ -481,7 +515,14 @@ export default function MembersTab({ project, access }: { project: PcProject; ac
                         )}
                       </td>
                       {canManage && (
-                        <td className="px-1 text-center">
+                        <td className="px-1 text-center whitespace-nowrap">
+                          <button
+                            onClick={() => setEditId(editId === m.id ? null : m.id)}
+                            className={`mr-1.5 ${editId === m.id ? "text-[#005BAC]" : "text-slate-300 hover:text-[#005BAC]"}`}
+                            title={editId === m.id ? "Huỷ đổi người" : "Đổi sang người khác"}
+                          >
+                            {editId === m.id ? <X size={13} /> : <Pencil size={13} />}
+                          </button>
                           <button onClick={() => remove(m)} className="text-slate-300 hover:text-rose-500" title="Gỡ thành viên">
                             <Trash2 size={13} />
                           </button>
