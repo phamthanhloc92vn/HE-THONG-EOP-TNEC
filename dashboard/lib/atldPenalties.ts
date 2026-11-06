@@ -11,7 +11,7 @@
 import { supabase } from "./supabase";
 import { apiFetch } from "./apiClient";
 import { atldErrorMessage } from "./atldStock";
-import { emailFieldMatches, splitEmails } from "./emailMatch";
+import { fetchRates, type PenaltyRate } from "./atldPenaltyRates";
 
 export const PENALTY_TYPES = ["Xử phạt vi phạm an toàn", "Khấu trừ cấp phát BHLĐ"];
 export const PPE_TYPES = ["Cấp phát PPE thu hồi chi phí"];
@@ -327,29 +327,24 @@ export function penaltyAlert(status: PenaltyStatus, days: number | null): Penalt
   return null;
 }
 
-// ─── "Xuất phiếu" Quyết định xử phạt theo mẫu Quyet_dinh_xu_phat_nha_thau_2.xlsx ───
-// Route /api/export-atld-penalty chỉ ghi ô; dữ liệu gom ở đây.
-//   Người lập        = họ tên (danh bạ) của TÀI KHOẢN tạo hồ sơ (created_by),
-//                      không có trong danh bạ mới lùi về ô Người lập.
-//   P. An toàn LĐ    = người có cờ "Duyệt xuất kho ATLĐ" (TP/PP), nhiều người thì nối " / ".
-//   Căn cứ/quy định  = Số QĐ của hồ sơ (user chốt 09/10/2026), mọi dòng.
+// ─── "Xuất phiếu" Quyết định xử phạt theo mẫu Word Quyet_dinh_xu_phat_ATLD_new.docx ───
+// (thay mẫu Excel Quyet_dinh_xu_phat_nha_thau_2.xlsx từ 06/11/2026.)
+// Route /api/export-atld-penalty chỉ điền chỗ trống; dữ liệu gom ở đây.
+//   Mã lỗi           = STT định mức (code) của dòng vi phạm.
+//   Căn cứ quy định  = Số QĐ của hồ sơ (user chốt 09/10/2026), mọi dòng.
+//   Số lần vi phạm   = Lần 1/2/3 chọn ở định mức (dòng gõ tay để trống).
+//   Số lần tính      = SL (Số lượng của dòng; đơn vị "lần" thì 1); Thành tiền = SL × Đơn giá.
 //   Căn cứ hợp đồng  = Số HĐ của nhà thầu trong Danh mục đối tác (finance_partner_contracts),
 //                      CHỈ HĐ cùng dự án với hồ sơ, không khớp thì để trống; nhiều HĐ nối ", ".
-//   SL × Mức phạt    = Thành tiền (SL = Số lượng của dòng; đơn vị "lần" thì 1).
-//   Hồ sơ cũ chưa có danh sách vi phạm (147): mỗi dòng Nội dung một dòng bảng, tổng
-//   lấy Giá trị phải khấu trừ.
-export type PenaltyDecisionLine = { noiDung: string; canCu: string; sl: number | null; mucPhat: number | null; thanhTien: number | null; khacPhuc: string };
-
-async function directoryNames(): Promise<{ name: string; email: string | null }[]> {
-  const { data } = await supabase.from("employees_directory").select("name, email");
-  return (data as { name: string; email: string | null }[] | null) || [];
-}
-
-const nameOf = (dir: { name: string; email: string | null }[], emails: string[]) =>
-  emails.map((e) => dir.find((d) => emailFieldMatches(d.email, e))?.name?.trim()).find(Boolean) || null;
+//   Hồ sơ cũ chưa có danh sách vi phạm (147): xem oldRecordLines. Tổng luôn lấy Giá trị
+//   phải khấu trừ.
+export type PenaltyDecisionLine = {
+  maLoi: string; noiDung: string; canCu: string; lanViPham: number | null;
+  sl: number | null; mucPhat: number | null; thanhTien: number | null;
+};
 
 // Số HĐ của nhà thầu: CHỈ HĐ cùng dự án với hồ sơ (user chốt 09/10/2026 — không khớp dự
-// án thì để trống "Căn cứ hợp đồng......." ghi tay, không lấy HĐ dự án khác).
+// án thì để trống "Hợp đồng số ……" ghi tay, không lấy HĐ dự án khác).
 async function contractNos(p: Penalty): Promise<string> {
   if (!p.contractor_id || !p.project_code) return "";
   const { data } = await supabase
@@ -361,54 +356,79 @@ async function contractNos(p: Penalty): Promise<string> {
   return Array.from(new Set(rows.map((c) => c.contract_no!.trim()))).join(", ");
 }
 
+// Hồ sơ cũ chỉ có ô Nội dung (gõ tay, chưa chọn từ định mức): mỗi dòng Nội dung một dòng
+// bảng, tra tab Định mức xử phạt theo nội dung để lấy Mã lỗi + đơn giá (user yêu cầu
+// 06/11/2026). Không biết lần thứ mấy nên lấy mức Lần 1, Số lần tính 1. Không khớp
+// định mức thì để trống ô tiền cho ghi tay.
+const normText = (v: string) => v.normalize("NFC").toLowerCase().replace(/[.,;:!?()"'\s]+/g, " ").trim();
+
+async function oldRecordLines(p: Penalty): Promise<PenaltyDecisionLine[]> {
+  const texts = (p.noi_dung || "").split("\n").map((t) => t.trim().replace(/^\d+[.)]\s*/, "")).filter(Boolean);
+  const { rows } = texts.length ? await fetchRates() : { rows: [] as PenaltyRate[] };
+  const priced = rows.filter((r) => r.muc_1 != null || r.muc_2 != null || r.muc_3 != null);
+  const find = (t: string): PenaltyRate | null => {
+    const code = /^(\d+(?:\.\d+){1,2})\s*[—–-]/.exec(t)?.[1];
+    if (code) return priced.find((r) => r.code === code) ?? null;
+    const n = normText(t);
+    return (
+      priced.find((r) => normText(r.noi_dung) === n) ??
+      // Gần đúng: một bên chứa bên kia (bỏ qua nội dung định mức quá ngắn); chọn dòng dài nhất.
+      priced
+        .filter((r) => { const m = normText(r.noi_dung); return m.length >= 15 && (n.includes(m) || m.includes(n)); })
+        .sort((a, b) => b.noi_dung.length - a.noi_dung.length)[0] ??
+      null
+    );
+  };
+  return texts.map((noiDung) => {
+    const r = find(noiDung);
+    const muc = r ? r.muc_1 ?? r.muc_2 ?? r.muc_3 : null;
+    return {
+      maLoi: r?.code || "",
+      noiDung,
+      canCu: p.so_quyet_dinh || "",
+      lanViPham: r ? 1 : null,
+      sl: r ? 1 : null,
+      mucPhat: muc,
+      thanhTien: muc,
+    };
+  });
+}
+
 export async function downloadPenaltyDecision(p: Penalty, hanKhacPhuc: string): Promise<void> {
-  const [dir, { data: perms }, soHopDong] = await Promise.all([
-    directoryNames(),
-    supabase.from("approval_permissions").select("email").eq("can_approve_atld_issue", true),
-    contractNos(p),
-  ]);
-  const approvers = Array.from(
-    new Set(((perms as { email: string | null }[] | null) || []).map((r) => nameOf(dir, splitEmails(r.email))).filter(Boolean))
-  );
+  const soHopDong = await contractNos(p);
 
   const lines: PenaltyDecisionLine[] = p.vi_pham?.length
     ? p.vi_pham.map((l) => {
         const sl = perUnit(l) ? Math.max(1, l.so_luong || 1) : 1;
         return {
-          noiDung: l.noi_dung.trim() + (l.rate_id && l.lan > 1 ? ` (vi phạm lần ${l.lan})` : ""),
+          maLoi: l.code || "",
+          noiDung: l.noi_dung.trim(),
           canCu: p.so_quyet_dinh || "",
+          lanViPham: l.rate_id ? l.lan : null,
           sl,
           mucPhat: l.rate_id ? l.muc[l.lan - 1] ?? l.muc.find((x) => x != null) ?? null : (Number(l.thanh_tien) || 0) / sl,
           thanhTien: Number(l.thanh_tien) || 0,
-          khacPhuc: l.hinh_thuc || "",
         };
       })
-    : (p.noi_dung || "").split("\n").map((t) => t.trim().replace(/^\d+[.)]\s*/, "")).filter(Boolean)
-        .map((noiDung) => ({ noiDung, canCu: p.so_quyet_dinh || "", sl: null, mucPhat: null, thanhTien: null, khacPhuc: "" }));
+    : await oldRecordLines(p);
 
-  const fileName = `Quyet_dinh_xu_phat_${p.ma_ho_so.replace(/[^a-zA-Z0-9.-]+/g, "_")}.xlsx`;
+  const fileName = `Quyet_dinh_xu_phat_${p.ma_ho_so.replace(/[^a-zA-Z0-9.-]+/g, "_")}.docx`;
   const res = await apiFetch("/api/export-atld-penalty", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       fileName,
-      maHoSo: p.ma_ho_so,
-      soQd: p.so_quyet_dinh || "",
-      ngayBanHanh: p.ngay_ban_hanh || "",
       nhaThau: p.contractor_name,
-      nguoiViPham: p.nguoi_vi_pham || "",
       duAn: p.project_name || p.project_code || "",
       soHopDong,
       lines,
       tongTien: p.gia_tri_phai_tru,
       hanKhacPhuc,
-      nguoiLap: (p.created_by && nameOf(dir, [p.created_by])) || p.nguoi_lap || "",
-      phongAtld: approvers.join(" / "),
     }),
   });
   if (!res.ok) {
     const j = await res.json().catch(() => ({}));
-    throw new Error(j.error === "template_not_found" ? "Không tìm thấy file mẫu Quyet_dinh_xu_phat_nha_thau_2.xlsx." : j.error || `Lỗi xuất phiếu (${res.status})`);
+    throw new Error(j.error === "template_not_found" ? "Không tìm thấy file mẫu Quyet_dinh_xu_phat_ATLD_new.docx." : j.error || `Lỗi xuất phiếu (${res.status})`);
   }
   const url = URL.createObjectURL(await res.blob());
   const a = document.createElement("a");
