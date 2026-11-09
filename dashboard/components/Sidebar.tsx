@@ -192,7 +192,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
       <button
         type="button"
         onClick={() => setBookingGroupOpen((o) => !o)}
-        className={`w-full flex items-center gap-3 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-[0.97] border cursor-pointer ${
+        className={`w-full flex items-center gap-3 px-5 py-2.5 rounded-[10px] text-xs font-bold transition-all duration-200 active:scale-[0.97] border cursor-pointer ${
           isBookingSectionActive
             ? "bg-gradient-to-r from-[#005BAC] to-[#00AEEF] border-transparent text-white shadow-md shadow-blue-500/15"
             : "bg-slate-50/50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -219,7 +219,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
                 key={child.href}
                 href={child.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-2.5 px-4 py-2 rounded-full text-[11px] font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
+                className={`flex items-center gap-2.5 px-4 py-2 rounded-[10px] text-[11px] font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
                   isChildActive
                     ? "bg-blue-50 border-blue-200 text-[#005BAC]"
                     : "bg-white border-slate-100 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
@@ -248,7 +248,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
       <button
         type="button"
         onClick={() => setProjectGroupOpen((o) => !o)}
-        className={`w-full flex items-center gap-3 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-[0.97] border cursor-pointer ${
+        className={`w-full flex items-center gap-3 px-5 py-2.5 rounded-[10px] text-xs font-bold transition-all duration-200 active:scale-[0.97] border cursor-pointer ${
           isProjectSection
             ? "bg-gradient-to-r from-[#005BAC] to-[#00AEEF] border-transparent text-white shadow-md shadow-blue-500/15"
             : "bg-slate-50/50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -272,7 +272,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
                 key={child.href}
                 href={child.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-2.5 px-4 py-2 rounded-full text-[11px] font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
+                className={`flex items-center gap-2.5 px-4 py-2 rounded-[10px] text-[11px] font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
                   isChildActive
                     ? "bg-blue-50 border-blue-200 text-[#005BAC]"
                     : "bg-white border-slate-100 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
@@ -304,7 +304,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
       <button
         type="button"
         onClick={() => setAtldGroupOpen((o) => !o)}
-        className={`w-full flex items-center gap-3 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-[0.97] border cursor-pointer ${
+        className={`w-full flex items-center gap-3 px-5 py-2.5 rounded-[10px] text-xs font-bold transition-all duration-200 active:scale-[0.97] border cursor-pointer ${
           isAtldSection
             ? "bg-gradient-to-r from-[#005BAC] to-[#00AEEF] border-transparent text-white shadow-md shadow-blue-500/15"
             : "bg-slate-50/50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -328,7 +328,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
                 key={child.tab}
                 href={`/an-toan-lao-dong?tab=${child.tab}`}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-2.5 px-4 py-2 rounded-full text-[11px] font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
+                className={`flex items-center gap-2.5 px-4 py-2 rounded-[10px] text-[11px] font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
                   isChildActive
                     ? "bg-blue-50 border-blue-200 text-[#005BAC]"
                     : "bg-white border-slate-100 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
@@ -354,7 +354,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
       <button
         type="button"
         onClick={() => setKeToanGroupOpen((o) => !o)}
-        className={`w-full flex items-center gap-3 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-[0.97] border cursor-pointer ${
+        className={`w-full flex items-center gap-3 px-5 py-2.5 rounded-[10px] text-xs font-bold transition-all duration-200 active:scale-[0.97] border cursor-pointer ${
           isKeToanSection
             ? "bg-gradient-to-r from-[#005BAC] to-[#00AEEF] border-transparent text-white shadow-md shadow-blue-500/15"
             : "bg-slate-50/50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -378,7 +378,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
                 key={child.href}
                 href={child.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-2.5 px-4 py-2 rounded-full text-[11px] font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
+                className={`flex items-center gap-2.5 px-4 py-2 rounded-[10px] text-[11px] font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
                   isChildActive
                     ? "bg-blue-50 border-blue-200 text-[#005BAC]"
                     : "bg-white border-slate-100 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
@@ -415,7 +415,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
             key={item.href}
             href={item.href}
             onClick={() => setSidebarOpen(false)}
-            className={`flex items-center gap-3 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
+            className={`flex items-center gap-3 px-5 py-2.5 rounded-[10px] text-xs font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
               isActive
                 ? "bg-gradient-to-r from-[#005BAC] to-[#00AEEF] border-transparent text-white shadow-md shadow-blue-500/15"
                 : "bg-slate-50/50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -441,7 +441,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
                 <Link
                   href="/pdf-edit"
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
+                  className={`flex items-center gap-3 px-5 py-2.5 rounded-[10px] text-xs font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border ${
                     isPdfEditActive
                       ? "bg-gradient-to-r from-[#005BAC] to-[#00AEEF] border-transparent text-white shadow-md shadow-blue-500/15"
                       : "bg-slate-50/50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -463,7 +463,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
                     }
                     setSidebarOpen(false);
                   }}
-                  className="flex items-center gap-3 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border bg-slate-50/50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  className="flex items-center gap-3 px-5 py-2.5 rounded-[10px] text-xs font-bold transition-all duration-200 active:scale-[0.97] hover:translate-x-1 border bg-slate-50/50 border-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 >
                   <FilePen size={15} className="text-slate-500" />
                   <span>PDF edit 1 click</span>
