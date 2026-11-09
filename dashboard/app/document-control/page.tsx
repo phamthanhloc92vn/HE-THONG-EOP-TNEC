@@ -91,6 +91,7 @@ export default function DocumentControlPage() {
   );
   const [exporting, setExporting] = useState(false);
   const [zipProgress, setZipProgress] = useState<string | null>(null); // "3/20" khi đang gom file
+  const [deleteProgress, setDeleteProgress] = useState<string | null>(null); // xoá file hàng loạt (Admin)
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -977,6 +978,79 @@ export default function DocumentControlPage() {
     }
   };
 
+  // XOÁ HÀNG LOẠT file đính kèm (Bản gốc + Bản scan) trong kho riêng tư, cùng phạm vi
+  // với nút "Tải file gốc" (tab đang mở + khoảng ngày + ô tìm kiếm). CHỈ Admin.
+  // - Giữ nguyên dòng công văn, chỉ bỏ trống ô link file.
+  // - Link Drive/OneDrive và tệp cũ ở kho công khai: không đụng tới.
+  // - Thứ tự: ghi CSDL TRƯỚC rồi mới xoá file (bài học storage-write-order):
+  //   dòng nào RLS không cho sửa thì file của dòng đó được giữ lại.
+  const handleDeleteOriginalsBulk = async () => {
+    if (!currentUser?.isAdmin) return;
+    const targets = filteredDocs
+      .filter((d) => {
+        const day = (d.receive_send_date || "").slice(0, 10);
+        if (exportFrom && (!day || day < exportFrom)) return false;
+        if (exportTo && (!day || day > exportTo)) return false;
+        return isPrivateRef(d.original_file_url) || isPrivateRef(d.scan_file_url);
+      })
+      .filter((d) => !!d.id);
+    if (targets.length === 0) {
+      alert("Không có file nào trong kho để xoá ở khoảng ngày đã chọn.");
+      return;
+    }
+    const vn = (s: string) => s.split("-").reverse().join("/");
+    const rangeText = exportFrom || exportTo
+      ? `từ ${exportFrom ? vn(exportFrom) : "đầu"} đến ${exportTo ? vn(exportTo) : "nay"}`
+      : "(toàn bộ tab)";
+    const ok = window.confirm(
+      `XOÁ VĨNH VIỄN file đính kèm (bản gốc + bản scan) của ${targets.length} công văn ${rangeText}?\n\n` +
+      `• Dòng công văn vẫn giữ, chỉ mất file.\n• Link Google Drive/OneDrive không bị xoá.\n• KHÔNG khôi phục được — nên bấm "Tải file gốc" trước.`
+    );
+    if (!ok) return;
+
+    setDeleteProgress(`0/${targets.length}`);
+    const paths: string[] = [];
+    let failed = 0;
+    let done = 0;
+    try {
+      for (const d of targets) {
+        const patch: Partial<ClericalDoc> = {};
+        if (isPrivateRef(d.original_file_url)) patch.original_file_url = "";
+        if (isPrivateRef(d.scan_file_url)) patch.scan_file_url = "";
+        const { data, error } = await supabase
+          .from("clerical_documents")
+          .update(patch)
+          .eq("id", d.id!)
+          .select("id");
+        if (error || !data || data.length === 0) {
+          failed++;
+        } else {
+          if (isPrivateRef(d.original_file_url)) paths.push(pathFromRef(d.original_file_url!));
+          if (isPrivateRef(d.scan_file_url)) paths.push(pathFromRef(d.scan_file_url!));
+        }
+        done++;
+        setDeleteProgress(`${done}/${targets.length}`);
+      }
+      // Xoá file theo lô 100 đường dẫn
+      let removeErr = "";
+      for (let i = 0; i < paths.length; i += 100) {
+        const { error } = await supabase.storage.from(CLERICAL_PRIVATE_BUCKET).remove(paths.slice(i, i + 100));
+        if (error) removeErr = error.message;
+      }
+      await fetchDocuments();
+      alert(
+        `Đã xoá file của ${targets.length - failed}/${targets.length} công văn.` +
+        (failed ? `\n${failed} công văn không cập nhật được nên giữ nguyên file.` : "") +
+        (removeErr ? `\nCảnh báo khi xoá trong kho: ${removeErr} (link trên bảng đã gỡ, file có thể còn sót trong kho).` : "")
+      );
+    } catch (e) {
+      alert("Lỗi khi xoá file: " + (e as Error).message);
+      fetchDocuments();
+    } finally {
+      setDeleteProgress(null);
+    }
+  };
+
   // Màn chặn truy cập (giống Góp ý & Kiến nghị): tài khoản không có quyền thấy
   // thông báo từ chối, không thấy bất kỳ dữ liệu công văn nào. RLS trên bảng
   // clerical_documents là lớp chặn thật ở database.
@@ -1116,6 +1190,20 @@ export default function DocumentControlPage() {
                     <><Download size={14} /> Tải file gốc</>
                   )}
                 </button>
+                {currentUser?.isAdmin && (
+                  <button
+                    onClick={handleDeleteOriginalsBulk}
+                    disabled={!!deleteProgress || !!zipProgress}
+                    className="flex items-center gap-1.5 bg-white border border-rose-500 text-rose-600 hover:bg-rose-50 disabled:opacity-60 text-xs font-bold px-4 py-2.5 rounded-xl transition-all active:scale-95 shadow-sm"
+                    title="Chỉ Admin: xoá vĩnh viễn file đính kèm của các công văn trong khoảng ngày đã chọn"
+                  >
+                    {deleteProgress ? (
+                      <><Loader2 size={14} className="animate-spin" /> Đang xoá {deleteProgress}</>
+                    ) : (
+                      <><Trash2 size={14} /> Xóa file gốc</>
+                    )}
+                  </button>
+                )}
                 {canManage && (
                   <button
                     onClick={openNewDocModal}
