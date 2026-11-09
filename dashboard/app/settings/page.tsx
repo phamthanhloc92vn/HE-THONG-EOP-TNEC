@@ -4,7 +4,7 @@ import { apiFetch } from "@/lib/apiClient";
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
-import { Settings, Database, Info, Key, CheckCircle, ShieldAlert, ShieldCheck, Check, X, Calendar, Briefcase, User, CarFront, DoorOpen, Mail, Package, Users, CalendarClock, ChevronRight, AlertCircle, BarChart3, FolderKanban, Building2 } from "lucide-react";
+import { Settings, Database, Info, Key, CheckCircle, ShieldAlert, ShieldCheck, Check, X, Calendar, Briefcase, User, CarFront, DoorOpen, Mail, Package, Users, CalendarClock, ChevronRight, AlertCircle, BarChart3, FolderKanban, Building2, Trash2 } from "lucide-react";
 import UserPermissionsModal, { type UserPermissionsTab } from "@/components/UserPermissionsModal";
 import UsageReportPanel from "@/components/UsageReportPanel";
 import ProjectCatalogPanel from "@/components/ProjectCatalogPanel";
@@ -14,7 +14,7 @@ import { usePrivacyPolicy } from "@/lib/usePrivacyPolicy";
 import { supabase } from "@/lib/supabase";
 import { usePlan } from "@/lib/plan";
 import { PLAN_LABELS, type Plan } from "@/lib/planShared";
-import { useDepartments } from "@/lib/departments";
+import { useDepartments, invalidateDepartments } from "@/lib/departments";
 import { useTenantConfig, invalidateTenantConfig, bookingSkipCap1Of } from "@/lib/tenantConfig";
 import {
   hasAnyApprovalPermission,
@@ -219,8 +219,28 @@ function SettingsContent() {
   const renderDeptPlanRow = (key: string, label: string, muted = false) => {
     const cur: Plan = deptPlansDraft[key] || (key === "_default" ? "basic" : deptPlansDraft["_default"] || "basic");
     return (
-      <div key={key} className="flex items-center justify-between gap-2 bg-white border border-slate-200/70 rounded-xl pl-3.5 pr-1.5 py-2 hover:border-slate-300 transition-all shadow-sm">
-        <span className={`text-[11px] font-bold truncate ${muted ? "text-slate-400 italic" : "text-slate-700"}`} title={label}>{label}</span>
+      <div key={key} className={`flex items-center justify-between gap-2 bg-white border rounded-xl pl-3.5 pr-1.5 py-2 transition-all shadow-sm ${selectedDept === key ? "border-rose-300" : "border-slate-200/70 hover:border-slate-300"}`}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => { if (key !== "_default") setSelectedDept(selectedDept === key ? null : key); }}
+            className={`text-[11px] font-bold truncate text-left ${muted ? "text-slate-400 italic" : "text-slate-700"} ${key !== "_default" ? "cursor-pointer hover:text-[#005BAC]" : ""}`}
+            title={key !== "_default" ? `${label} — bấm để hiện nút xoá` : label}
+          >
+            {label}
+          </button>
+          {selectedDept === key && (
+            <button
+              type="button"
+              onClick={() => handleDeleteDept(key)}
+              disabled={deletingDept}
+              className="shrink-0 flex items-center gap-1 text-[9px] font-extrabold text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-50 px-2 py-1 rounded-md cursor-pointer transition-all"
+              title="Xoá phòng này khỏi danh sách"
+            >
+              <Trash2 size={11} /> {deletingDept ? "…" : "Xoá"}
+            </button>
+          )}
+        </div>
         <div className="flex gap-0.5 shrink-0 bg-slate-100 p-0.5 rounded-lg">
           {(["basic", "professional", "enterprise"] as Plan[]).map(pl => {
             const active = cur === pl;
@@ -276,6 +296,133 @@ function SettingsContent() {
   // Hộp hỏi "có chắc không" + hộp nhập lý do — cùng mẫu căn giữa, thay confirm()/prompt().
   const { ask, confirmNode } = useConfirmBox();
   const { askText, promptNode } = usePromptBox();
+
+  // ─── Tạo phòng ban / BĐH mới (chỉ Admin; RLS admin_write_departments chặn ở DB) ───
+  const [newDeptName, setNewDeptName] = useState("");
+  const [newDeptType, setNewDeptType] = useState<"phong_ban" | "bdh">("phong_ban");
+  const [creatingDept, setCreatingDept] = useState(false);
+  const handleCreateDept = async () => {
+    const name = newDeptName.trim().replace(/\s+/g, " ");
+    if (!name || creatingDept) return;
+    const typeLabel = newDeptType === "bdh" ? "Ban điều hành" : "Phòng ban";
+    if (deptLists.all.some(d => d.toLowerCase() === name.toLowerCase())) {
+      notify(`"${name}" đã có trong danh sách.`, "warn");
+      return;
+    }
+    setCreatingDept(true);
+    try {
+      // Xếp cuối nhóm: sort_order lớn nhất cùng loại + 10
+      const { data: last } = await supabase
+        .from("departments")
+        .select("sort_order")
+        .eq("type", newDeptType)
+        .order("sort_order", { ascending: false })
+        .limit(1);
+      const sortOrder = ((last?.[0]?.sort_order as number | undefined) ?? 0) + 10;
+
+      const { data, error } = await supabase
+        .from("departments")
+        .insert({ name, type: newDeptType, sort_order: sortOrder, active: true })
+        .select("id");
+      if (error) {
+        const msg = error.code === "23505"
+          ? `"${name}" đã tồn tại (có thể đang bị ẩn — active = false).`
+          : error.message;
+        notify(`Không tạo được ${typeLabel.toLowerCase()}: ${msg}`, "error");
+        return;
+      }
+      // RLS chặn INSERT có thể trả 0 dòng thay vì lỗi
+      if (!data || data.length === 0) {
+        notify("Không tạo được — chỉ tài khoản Admin mới có quyền này.", "error");
+        return;
+      }
+      await invalidateDepartments();
+      setNewDeptName("");
+      notify(`Đã tạo ${typeLabel.toLowerCase()} "${name}".`, "success");
+    } finally {
+      setCreatingDept(false);
+    }
+  };
+  // ─── Xoá phòng ban / BĐH (chỉ Admin): bấm tên phòng để hiện nút Xoá ───
+  const [selectedDept, setSelectedDept] = useState<string | null>(null);
+  const [deletingDept, setDeletingDept] = useState(false);
+  const handleDeleteDept = (name: string) => {
+    ask({
+      title: `Xoá "${name}"?`,
+      message: "Phòng sẽ biến mất khỏi mọi danh sách chọn phòng ban. Không hoàn tác được.",
+      confirmLabel: "Xoá",
+      onConfirm: async () => {
+        setDeletingDept(true);
+        try {
+          // Còn nhân viên thuộc phòng thì không cho xoá — tránh NV mồ côi phòng
+          const { count, error: cntErr } = await supabase
+            .from("employees")
+            .select("id", { count: "exact", head: true })
+            .eq("department", name);
+          if (cntErr) {
+            notify("Không kiểm tra được nhân viên của phòng: " + cntErr.message, "error");
+            return;
+          }
+          if ((count ?? 0) > 0) {
+            notify(`"${name}" còn ${count} nhân viên. Chuyển họ sang phòng khác ở Danh sách nhân viên rồi mới xoá được.`, "warn");
+            return;
+          }
+          const { data, error } = await supabase
+            .from("departments")
+            .delete()
+            .eq("name", name)
+            .select("id");
+          if (error) {
+            notify("Không xoá được: " + error.message, "error");
+            return;
+          }
+          // RLS chặn DELETE trả 0 dòng thay vì lỗi
+          if (!data || data.length === 0) {
+            notify("Không xoá được — chỉ tài khoản Admin mới có quyền này.", "error");
+            return;
+          }
+          setSelectedDept(null);
+          await invalidateDepartments();
+          notify(`Đã xoá "${name}".`, "success");
+        } finally {
+          setDeletingDept(false);
+        }
+      },
+    });
+  };
+
+  const createDeptForm = (
+    <div className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/30 p-3 space-y-2">
+      <p className="text-[10px] font-black text-[#005BAC] uppercase tracking-wider">
+        Tạo phòng ban / Ban điều hành mới
+      </p>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <select
+          value={newDeptType}
+          onChange={e => setNewDeptType(e.target.value as "phong_ban" | "bdh")}
+          className="text-[11px] font-bold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-blue-400 cursor-pointer"
+        >
+          <option value="phong_ban">Phòng ban chức năng</option>
+          <option value="bdh">Ban điều hành dự án</option>
+        </select>
+        <input
+          value={newDeptName}
+          onChange={e => setNewDeptName(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") handleCreateDept(); }}
+          placeholder={newDeptType === "bdh" ? "VD: BĐH Cầu Rạch Miễu" : "VD: Phòng Pháp Chế"}
+          className="flex-1 min-w-0 text-[11px] font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-blue-400"
+        />
+        <button
+          onClick={handleCreateDept}
+          disabled={creatingDept || !newDeptName.trim()}
+          className="text-[11px] font-bold text-white bg-[#005BAC] hover:bg-blue-700 disabled:opacity-50 px-4 py-2 rounded-xl transition-all cursor-pointer shadow-sm shrink-0"
+        >
+          {creatingDept ? "Đang tạo…" : "+ Tạo mới"}
+        </button>
+      </div>
+    </div>
+  );
+
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   // Mỗi luồng còn cấp 2 (duyệt cuối HCNS) hay không — suy từ việc CÓ AI đang giữ cờ
@@ -1567,13 +1714,11 @@ function SettingsContent() {
                   >
                     Bật phân gói theo phòng
                   </button>
+                  <div className="w-full px-4 pt-2 text-left">{createDeptForm}</div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Mặc định — phòng chưa gán */}
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
-                    {renderDeptPlanRow("_default", "Phòng chưa gán (mặc định)", true)}
-                  </div>
+                  {createDeptForm}
 
                   {/* Phòng ban chức năng */}
                   <div className="rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4 space-y-3">

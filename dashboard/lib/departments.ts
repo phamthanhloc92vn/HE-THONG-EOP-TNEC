@@ -106,6 +106,17 @@ export async function fetchDepartments(): Promise<DepartmentLists> {
   return inflight;
 }
 
+// Các hook đang mở, để báo khi danh sách đổi (VD Admin vừa tạo phòng mới)
+const listeners = new Set<(l: DepartmentLists) => void>();
+
+// Xoá cache rồi đọc lại DB, báo cho mọi component đang dùng useDepartments.
+export async function invalidateDepartments(): Promise<DepartmentLists> {
+  cached = null;
+  const l = await fetchDepartments();
+  listeners.forEach(fn => fn(l));
+  return l;
+}
+
 // Hook cho component: render ngay với DEFAULTS, tự cập nhật khi DB trả về.
 export function useDepartments(): DepartmentLists {
   const [lists, setLists] = useState<DepartmentLists>(cached || DEPARTMENT_DEFAULTS);
@@ -113,7 +124,9 @@ export function useDepartments(): DepartmentLists {
   useEffect(() => {
     let mounted = true;
     fetchDepartments().then(l => { if (mounted) setLists(l); });
-    return () => { mounted = false; };
+    const onChange = (l: DepartmentLists) => { if (mounted) setLists(l); };
+    listeners.add(onChange);
+    return () => { mounted = false; listeners.delete(onChange); };
   }, []);
 
   return lists;
