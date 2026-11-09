@@ -1501,6 +1501,46 @@ export default function RecruitmentPage() {
     }
   };
 
+  // Xuất Excel tab con đang mở (Tổng hợp / Vòng 1 / Vòng 2 / Thử việc): đúng cột
+  // và đúng danh sách đang hiện trên bảng (đã áp bộ lọc ngày/kết quả/phòng + tìm kiếm).
+  const handleExportCandidatesExcel = async () => {
+    const rows = getFilteredTableCandidates(tableSubTab);
+    if (rows.length === 0) {
+      alert("Không có ứng viên nào để xuất.");
+      return;
+    }
+    try {
+      const XLSX = await import("xlsx");
+      const cols = getColumnsForTab(tableSubTab);
+      const fmtCell = (col: { key: string; type?: string }, val: any, idx: number) => {
+        if (col.key === "stt") return idx + 1;
+        if (val === null || val === undefined) return "";
+        if (col.type === "status") return val === "rejected" ? "FAIL" : val === "new" ? "LƯU CV" : "PASS CV";
+        if (col.key === "created_at") {
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+        }
+        if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val)) return formatDateForDisplay(val);
+        return val;
+      };
+      const data = rows.map((c: any, i: number) => {
+        const o: Record<string, any> = {};
+        cols.forEach((col) => { o[col.label] = fmtCell(col, c[col.key], i); });
+        return o;
+      });
+      const ws = XLSX.utils.json_to_sheet(data);
+      ws["!cols"] = cols.map((col) => ({ wch: Math.max(6, Math.round(parseInt(col.width) / 7)) }));
+      const wb = XLSX.utils.book_new();
+      const tabNames: Record<string, string> = { tong_hop: "Tong hop", vong_1: "Vong 1", vong_2: "Vong 2", thu_viec: "Thu viec" };
+      const name = tabNames[tableSubTab] || "Ung vien";
+      XLSX.utils.book_append_sheet(wb, ws, name);
+      const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
+      XLSX.writeFile(wb, `Ung vien - ${name} - ${today}.xlsx`);
+    } catch (e) {
+      alert("Lỗi khi xuất Excel: " + (e as Error).message);
+    }
+  };
+
   // Add Blank Candidate Row (Dòng điền tay)
   const handleAddBlankRow = async () => {
     if (!canManage) {
@@ -2692,11 +2732,12 @@ export default function RecruitmentPage() {
                       className="w-full pl-9 pr-4 py-2 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/40 transition-all shadow-sm"
                     />
                   </div>
-                  <button 
-                    onClick={fetchCandidates}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-xs font-semibold text-slate-600 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
+                  <button
+                    onClick={handleExportCandidatesExcel}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
+                    title="Xuất Excel đúng danh sách đang hiện ở tab này (theo bộ lọc + ô tìm kiếm)"
                   >
-                    Tải lại
+                    <FileDown size={14} /> Xuất Excel
                   </button>
                   {canManage && (
                     <div className="flex items-center gap-2">

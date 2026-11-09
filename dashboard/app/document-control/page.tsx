@@ -7,7 +7,15 @@ import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/useCurrentUser";
-import { uploadClericalFile, resolveClericalUrl, isPrivateRef, displayNameFromRef } from "@/lib/clericalFiles";
+import {
+  uploadClericalFile,
+  resolveClericalUrl,
+  isPrivateRef,
+  isLegacyPublicUrl,
+  pathFromRef,
+  displayNameFromRef,
+  CLERICAL_PRIVATE_BUCKET,
+} from "@/lib/clericalFiles";
 import { resolveModel, DEFAULT_AI_MODEL, AI_MODEL_OPTIONS } from "@/lib/aiModel";
 import {
   FileDown,
@@ -74,6 +82,15 @@ interface BatchItem {
 export default function DocumentControlPage() {
   const [activeTab, setActiveTab] = useState<string>("incoming"); // incoming, outgoing_1, outgoing_2, outgoing_hdqt, settings
   const [docs, setDocs] = useState<ClericalDoc[]>([]);
+  // Khoảng ngày xuất Excel, mặc định từ ngày 1 tháng này đến hôm nay (giờ VN).
+  const [exportFrom, setExportFrom] = useState<string>(() =>
+    new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).slice(0, 8) + "01"
+  );
+  const [exportTo, setExportTo] = useState<string>(() =>
+    new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" })
+  );
+  const [exporting, setExporting] = useState(false);
+  const [zipProgress, setZipProgress] = useState<string | null>(null); // "3/20" khi đang gom file
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -815,6 +832,151 @@ export default function DocumentControlPage() {
     );
   });
 
+  // Xuất Excel tab đang mở, lọc theo khoảng ngày của cột "Ngày/Tháng" (receive_send_date).
+  // Để trống cả 2 ô = tải toàn bộ tab. Ô tìm kiếm cũng áp dụng (xuất đúng cái đang thấy).
+  const handleExportExcel = async () => {
+    const tabLabels: Record<string, string> = {
+      incoming: "Cong van den",
+      outgoing_1: "Cong van di 1",
+      outgoing_2: "Cong van di 2",
+      outgoing_hdqt: "Cong van HDQT",
+    };
+    const vn = (s: string) => s.split("-").reverse().join("/");
+    const rows = filteredDocs.filter((d) => {
+      const day = (d.receive_send_date || "").slice(0, 10);
+      if (exportFrom && (!day || day < exportFrom)) return false;
+      if (exportTo && (!day || day > exportTo)) return false;
+      return true;
+    });
+    const rangeText = exportFrom || exportTo
+      ? `từ ${exportFrom ? vn(exportFrom) : "đầu"} đến ${exportTo ? vn(exportTo) : "nay"}`
+      : "";
+    if (rows.length === 0) {
+      alert(rangeText ? `Không có công văn nào ${rangeText}.` : "Không có công văn nào để xuất.");
+      return;
+    }
+    setExporting(true);
+    try {
+      const XLSX = await import("xlsx");
+      const isIncoming = activeTab === "incoming";
+      const fmt = (v?: string) => (v ? new Date(v).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "");
+      const data = rows.map((d) => ({
+        "STT": d.stt,
+        "Ngày/Tháng": fmt(d.receive_send_date),
+        "Số văn bản": d.doc_number || "",
+        "Ngày VB": fmt(d.doc_date),
+        "Tóm tắt nội dung chính": d.summary || "",
+        [isIncoming ? "Đơn vị gửi đến" : "Đơn vị nhận"]: d.sender_receiver || "",
+        [isIncoming ? "Người nhận" : "Người ký"]: d.signer_recipient || "",
+        "Bản Scan": d.has_scan ? "Có" : "",
+        "Bản gốc": d.has_original ? "Có" : "",
+        "Tên file CV": d.file_name || "",
+      }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      ws["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 60 }, { wch: 30 }, { wch: 22 }, { wch: 9 }, { wch: 9 }, { wch: 30 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Cong van");
+      const base = tabLabels[activeTab] || "Cong van";
+      const d2 = (s: string) => s.split("-").reverse().join("-");
+      const suffix = exportFrom || exportTo
+        ? `_${exportFrom ? d2(exportFrom) : "dau"}_den_${exportTo ? d2(exportTo) : "nay"}`
+        : "_tat_ca";
+      XLSX.writeFile(wb, `${base}${suffix}.xlsx`);
+    } catch (e) {
+      alert("Lỗi khi xuất Excel: " + (e as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Tải hàng loạt file gốc (ưu tiên Bản gốc, không có thì lấy Bản scan) của tab
+  // đang mở, cùng khoảng ngày + ô tìm kiếm với nút Excel, nén thành 1 file ZIP.
+  // Link Google Drive/OneDrive không tải thẳng được từ trình duyệt (CORS) nên
+  // liệt kê vào file "DANH-SACH-CHUA-TAI.txt" trong ZIP để tải tay.
+  const handleDownloadOriginalsZip = async () => {
+    const rows = filteredDocs.filter((d) => {
+      const day = (d.receive_send_date || "").slice(0, 10);
+      if (exportFrom && (!day || day < exportFrom)) return false;
+      if (exportTo && (!day || day > exportTo)) return false;
+      return !!(d.original_file_url || d.scan_file_url);
+    });
+    if (rows.length === 0) {
+      alert("Không có công văn nào có file đính kèm trong khoảng ngày đã chọn.");
+      return;
+    }
+    setZipProgress(`0/${rows.length}`);
+    try {
+      const { default: JSZip } = await import("jszip");
+      const zip = new JSZip();
+      const skipped: string[] = [];
+      const usedNames = new Set<string>();
+      const clean = (s: string) =>
+        s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D")
+          .replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+
+      let done = 0;
+      for (const d of rows) {
+        const ref = (d.original_file_url || d.scan_file_url)!;
+        const label = `STT ${d.stt} - ${d.doc_number || "(chưa có số)"}`;
+        try {
+          let blob: Blob;
+          if (isPrivateRef(ref)) {
+            const { data, error } = await supabase.storage
+              .from(CLERICAL_PRIVATE_BUCKET)
+              .download(pathFromRef(ref));
+            if (error || !data) throw new Error(error?.message || "không tải được");
+            blob = data;
+          } else if (isLegacyPublicUrl(ref)) {
+            const res = await fetch(ref);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            blob = await res.blob();
+          } else {
+            skipped.push(`${label}: link ngoài -> ${ref}`);
+            continue;
+          }
+          const srcName = displayNameFromRef(ref) || d.file_name || "file.pdf";
+          const ext = (srcName.match(/\.[a-zA-Z0-9]{2,5}$/)?.[0] || ".pdf").toLowerCase();
+          let name = clean(`${d.stt}_${d.doc_number || "khong-so"}`) || `${d.stt}`;
+          let finalName = `${name}${ext}`;
+          for (let n = 2; usedNames.has(finalName); n++) finalName = `${name}_${n}${ext}`;
+          usedNames.add(finalName);
+          zip.file(finalName, blob);
+        } catch (e) {
+          skipped.push(`${label}: lỗi ${(e as Error).message}`);
+        } finally {
+          done++;
+          setZipProgress(`${done}/${rows.length}`);
+        }
+      }
+
+      if (skipped.length) {
+        zip.file("DANH-SACH-CHUA-TAI.txt", "Các công văn chưa gom được vào ZIP:\r\n\r\n" + skipped.join("\r\n"));
+      }
+      const content = await zip.generateAsync({ type: "blob" });
+      const tabNames: Record<string, string> = {
+        incoming: "Cong van den", outgoing_1: "Cong van di 1", outgoing_2: "Cong van di 2", outgoing_hdqt: "Cong van HDQT",
+      };
+      const d2 = (s: string) => s.split("-").reverse().join("-");
+      const suffix = exportFrom || exportTo
+        ? `_${exportFrom ? d2(exportFrom) : "dau"}_den_${exportTo ? d2(exportTo) : "nay"}`
+        : "_tat_ca";
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(content);
+      a.download = `File goc - ${tabNames[activeTab] || "Cong van"}${suffix}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      if (skipped.length) {
+        alert(`Đã tải ${rows.length - skipped.length}/${rows.length} file. ${skipped.length} công văn chưa gom được (link Drive hoặc lỗi), xem file DANH-SACH-CHUA-TAI.txt trong ZIP.`);
+      }
+    } catch (e) {
+      alert("Lỗi khi tạo file ZIP: " + (e as Error).message);
+    } finally {
+      setZipProgress(null);
+    }
+  };
+
   // Màn chặn truy cập (giống Góp ý & Kiến nghị): tài khoản không có quyền thấy
   // thông báo từ chối, không thấy bất kỳ dữ liệu công văn nào. RLS trên bảng
   // clerical_documents là lớp chặn thật ở database.
@@ -913,12 +1075,46 @@ export default function DocumentControlPage() {
                 />
               </div>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={fetchDocuments}
-                  className="flex items-center justify-center p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all text-slate-500 bg-white"
-                  title="Tải lại dữ liệu"
+                <div
+                  className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-sm"
+                  title="Khoảng ngày cần tải theo cột Ngày/Tháng (để trống = không giới hạn)"
                 >
-                  <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Từ</span>
+                  <input
+                    type="date"
+                    value={exportFrom}
+                    max={exportTo || undefined}
+                    onChange={(e) => setExportFrom(e.target.value)}
+                    className="text-xs font-semibold text-slate-700 bg-transparent outline-none cursor-pointer w-[112px]"
+                  />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">đến</span>
+                  <input
+                    type="date"
+                    value={exportTo}
+                    min={exportFrom || undefined}
+                    onChange={(e) => setExportTo(e.target.value)}
+                    className="text-xs font-semibold text-slate-700 bg-transparent outline-none cursor-pointer w-[112px]"
+                  />
+                </div>
+                <button
+                  onClick={handleExportExcel}
+                  disabled={exporting}
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all active:scale-95 shadow-md"
+                  title="Tải Excel các công văn trong khoảng ngày đã chọn"
+                >
+                  {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Tải Excel
+                </button>
+                <button
+                  onClick={handleDownloadOriginalsZip}
+                  disabled={!!zipProgress}
+                  className="flex items-center gap-1.5 bg-white border border-emerald-600 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60 text-xs font-bold px-4 py-2.5 rounded-xl transition-all active:scale-95 shadow-sm"
+                  title="Gom file gốc của các công văn trong khoảng ngày đã chọn thành 1 file ZIP"
+                >
+                  {zipProgress ? (
+                    <><Loader2 size={14} className="animate-spin" /> Đang gom {zipProgress}</>
+                  ) : (
+                    <><Download size={14} /> Tải file gốc</>
+                  )}
                 </button>
                 {canManage && (
                   <button
