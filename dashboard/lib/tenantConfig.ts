@@ -77,6 +77,13 @@ export type TenantConfig = {
   // diện không ghi vào khoá này nữa; công ty nào đang bật thì tắt nó đi rồi dùng
   // hai khoá riêng ở trên.
   booking_skip_cap1: boolean;
+  // KHOÁ TẤT CẢ TÀI KHOẢN — bật thì mọi người không phải Admin (allowed_users)
+  // bị chặn ở AuthWrapper. Chỉ là 1 công tắc, KHÔNG đổi trạng thái từng nhân
+  // viên, nên tắt đi là mọi người vào lại như cũ (người nghỉ việc vẫn bị khoá).
+  lock_all_accounts: boolean;
+  // Khoá THEO PHÒNG BAN / BĐH: danh sách tên khớp đúng `employees.department`.
+  // Người thuộc phòng trong danh sách bị khoá như lock_all_accounts.
+  locked_departments: string[];
 };
 
 export const TENANT_DEFAULTS: TenantConfig = {
@@ -103,6 +110,8 @@ export const TENANT_DEFAULTS: TenantConfig = {
   booking_skip_cap1_xe: false, // mặc định TẮT -> vẫn đủ 2 cấp như cũ
   booking_skip_cap1_phong_hop: false,
   booking_skip_cap1: false, // khoá cũ, mặc định TẮT
+  lock_all_accounts: false,
+  locked_departments: [],
 };
 
 /**

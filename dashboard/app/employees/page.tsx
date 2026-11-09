@@ -35,7 +35,10 @@ import {
   ChevronDown,
   ChevronRight,
   Eye,
-  EyeOff
+  EyeOff,
+  Download,
+  Lock,
+  LockOpen
 } from "lucide-react";
 
 // Danh sách phòng ban / BĐH giờ đọc từ bảng `departments` (Supabase) qua
@@ -630,6 +633,68 @@ export default function EmployeeManagementPage() {
     }
   };
 
+  // ─── Khoá tất cả tài khoản (chỉ Admin) ───
+  // Một công tắc ở tenant_config, AuthWrapper đọc để chặn mọi người không phải
+  // Admin. Không đụng tới trạng thái từng nhân viên nên tắt là mở lại như cũ.
+  // Nút đi theo BỘ LỌC: chưa chọn phòng/BĐH -> khoá toàn hệ thống; đang chọn
+  // 1 phòng/BĐH -> chỉ khoá phòng đó (danh sách locked_departments).
+  const [lockAll, setLockAll] = useState(false);
+  const [lockedDepts, setLockedDepts] = useState<string[]>([]);
+  const [savingLockAll, setSavingLockAll] = useState(false);
+
+  useEffect(() => {
+    setLockAll(!!tenantConfig.lock_all_accounts);
+    setLockedDepts(Array.isArray(tenantConfig.locked_departments) ? tenantConfig.locked_departments : []);
+  }, [tenantConfig.lock_all_accounts, tenantConfig.locked_departments]);
+
+  // Phòng/BĐH đang lọc (hai ô lọc loại trừ nhau, cùng khớp employees.department)
+  const lockUnit = filterDept !== "all" ? filterDept : filterBdh !== "all" ? filterBdh : null;
+  // Đang khoá toàn hệ thống thì nút luôn là "Mở lại tất cả", bất kể bộ lọc
+  const lockScopeAll = lockAll || !lockUnit;
+  const lockOn = lockScopeAll ? lockAll : lockedDepts.includes(lockUnit!);
+
+  const handleToggleLockAll = () => {
+    const next = !lockOn;
+    const unitLabel = lockScopeAll ? "tất cả tài khoản" : lockUnit;
+    // Mở lại tất cả = xoá luôn các phòng đang khoá riêng, đúng nghĩa "tất cả"
+    const rows = lockScopeAll
+      ? next
+        ? [{ key: "lock_all_accounts", value: true }]
+        : [{ key: "lock_all_accounts", value: false }, { key: "locked_departments", value: [] as string[] }]
+      : [{
+          key: "locked_departments",
+          value: next ? [...lockedDepts, lockUnit!] : lockedDepts.filter(d => d !== lockUnit),
+        }];
+    ask({
+      title: next ? `Khoá ${unitLabel}?` : `Mở lại ${unitLabel}?`,
+      message: next
+        ? `${lockScopeAll ? "Mọi tài khoản" : `Mọi tài khoản thuộc ${lockUnit}`} không phải Admin sẽ bị đăng xuất khi tải lại trang, màn hình đăng nhập hiện "Hệ thống đang bảo trì". Trạng thái từng nhân viên giữ nguyên, bấm lại nút này là mở lại.`
+        : `Nhân viên đang làm việc${lockScopeAll ? "" : ` thuộc ${lockUnit}`} sẽ đăng nhập lại được ngay${lockScopeAll && lockedDepts.length ? " (kể cả các phòng đang khoá riêng)" : ""}. Người đã nghỉ việc vẫn bị khoá như cũ.`,
+      tone: next ? "danger" : "normal",
+      confirmLabel: next ? "Khoá" : "Mở lại",
+      onConfirm: async () => {
+        setSavingLockAll(true);
+        try {
+          const now = new Date().toISOString();
+          const { error } = await supabase
+            .from("tenant_config")
+            .upsert(rows.map(r => ({ ...r, updated_at: now })), { onConflict: "key" });
+          if (error) throw error;
+          invalidateTenantConfig();
+          for (const r of rows) {
+            if (r.key === "lock_all_accounts") setLockAll(r.value as boolean);
+            else setLockedDepts(r.value as string[]);
+          }
+          notify(next ? `Đã khoá ${unitLabel} (trừ Admin).` : `Đã mở lại ${unitLabel}.`, "success");
+        } catch (err: any) {
+          notify("Không lưu được thiết lập: " + (err?.message || err), "error");
+        } finally {
+          setSavingLockAll(false);
+        }
+      },
+    });
+  };
+
   // Ghim 3 cột đầu (STT / Mã nhân viên / Họ tên) khi kéo ngang bảng.
   // Bảng dùng `table-auto` nên độ rộng cột do NỘI DUNG quyết định — không thể tính
   // toạ độ `left` từ số cứng như bảng Tuyển dụng, phải đo bằng offsetWidth thật.
@@ -754,6 +819,56 @@ export default function EmployeeManagementPage() {
         handleUpdateEmployeeField(emp.id, "status", "Chính thức");
       },
     });
+  };
+
+  // Tải TOÀN BỘ danh sách nhân sự (không theo bộ lọc đang chọn) ra Excel.
+  // Có CCCD, địa chỉ, SĐT người thân nên chỉ hiện nút cho canEdit.
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const handleExportExcel = async () => {
+    if (exportingExcel || employees.length === 0) return;
+    setExportingExcel(true);
+    try {
+      const XLSX = await import("xlsx");
+      const isResigned = (e: Employee) =>
+        (e.status || "").toLowerCase().includes("nghỉ việc") ||
+        (e.notes || "").toLowerCase().includes("nghỉ việc");
+      const sorted = [...employees].sort((a, b) => Number(isResigned(a)) - Number(isResigned(b)));
+      const clean = (v: string) => (v === "N/A" ? "" : v || "");
+      const rows = sorted.map((e, i) => ({
+        "STT": i + 1,
+        "Mã NV": e.employee_code,
+        "Họ tên": e.name,
+        "Phòng ban / BĐH": e.department,
+        "Chức danh": e.position,
+        "Giới tính": e.gender,
+        "Ngày sinh": e.date_of_birth,
+        "Số điện thoại": clean(e.phone),
+        "Email": clean(e.email),
+        "Số CCCD": e.cccd,
+        "Ngày cấp CCCD": e.cccd_date,
+        "Nơi cấp CCCD": e.cccd_place,
+        "Địa chỉ thường trú": e.permanent_address,
+        "Địa chỉ tạm trú": e.temporary_address,
+        "Bằng cấp": e.degree,
+        "Trạng thái": e.status,
+        "Họ tên người thân": e.emergency_contact_name,
+        "Mối quan hệ": e.emergency_contact_relationship,
+        "SĐT người thân": e.emergency_contact_phone,
+        "Ghi chú": e.notes,
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws["!cols"] = [6, 10, 26, 24, 26, 9, 12, 14, 34, 15, 13, 20, 36, 36, 30, 16, 24, 12, 14, 30].map(wch => ({ wch }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Danh sách nhân viên");
+      const d = new Date();
+      const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+      XLSX.writeFile(wb, `Danh_sach_nhan_vien_${stamp}.xlsx`);
+    } catch (err: any) {
+      console.error("Error exporting employees:", err);
+      notify("Lỗi khi xuất Excel: " + (err?.message || err), "error");
+    } finally {
+      setExportingExcel(false);
+    }
   };
 
   const handleOpenHandoverModal = (emp: Employee) => {
@@ -940,7 +1055,7 @@ export default function EmployeeManagementPage() {
                 >
                   <option value="all">Tất cả phòng ban</option>
                   {DEPARTMENTS.map(d => (
-                    <option key={d} value={d}>{d}</option>
+                    <option key={d} value={d}>{d}{lockedDepts.includes(d) ? " (đang khoá)" : ""}</option>
                   ))}
                 </select>
               </div>
@@ -960,7 +1075,7 @@ export default function EmployeeManagementPage() {
                 >
                   <option value="all">Tất cả Ban điều hành</option>
                   {BDH_OPTIONS.map((bdh) => (
-                    <option key={bdh} value={bdh}>{bdh}</option>
+                    <option key={bdh} value={bdh}>{bdh}{lockedDepts.includes(bdh) ? " (đang khoá)" : ""}</option>
                   ))}
                 </select>
               </div>
@@ -1026,6 +1141,31 @@ export default function EmployeeManagementPage() {
                   Bàn giao & Khóa tài khoản
                 </button>
               )}
+              {currentUser?.isAdmin && (
+                <button
+                  onClick={handleToggleLockAll}
+                  disabled={savingLockAll}
+                  className={`flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50 ${
+                    lockOn
+                      ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
+                      : "bg-slate-700 hover:bg-slate-800 shadow-slate-500/20"
+                  }`}
+                  title={
+                    lockScopeAll
+                      ? lockAll
+                        ? "Đang khoá tất cả tài khoản trừ Admin — bấm để mở lại"
+                        : `Khoá tất cả tài khoản, chỉ Admin còn truy cập được. Chọn phòng ban/BĐH ở bộ lọc để khoá riêng từng phòng.${lockedDepts.length ? ` Đang khoá riêng: ${lockedDepts.join(", ")}` : ""}`
+                      : lockOn
+                        ? `Đang khoá ${lockUnit} — bấm để mở lại`
+                        : `Khoá tài khoản thuộc ${lockUnit}, chỉ Admin còn truy cập được`
+                  }
+                >
+                  {savingLockAll ? <Loader2 size={14} className="animate-spin" /> : lockOn ? <LockOpen size={14} /> : <Lock size={14} />}
+                  {lockScopeAll
+                    ? (lockOn ? "Mở lại tất cả tài khoản" : "Khóa tất cả tài khoản")
+                    : (lockOn ? "Mở lại phòng này" : "Khóa phòng này")}
+                </button>
+              )}
               {canUploadEmployeeList && (
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -1034,6 +1174,19 @@ export default function EmployeeManagementPage() {
                 >
                   <Upload size={13} className="text-slate-500" />
                   Danh sách nhân sự
+                </button>
+              )}
+              {canEdit && (
+                <button
+                  onClick={handleExportExcel}
+                  disabled={exportingExcel || employees.length === 0}
+                  className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Tải toàn bộ danh sách nhân viên xuống file Excel"
+                >
+                  {exportingExcel
+                    ? <Loader2 size={13} className="animate-spin text-emerald-600" />
+                    : <Download size={13} className="text-emerald-600" />}
+                  Xuất Excel
                 </button>
               )}
               {/* Cấu hình OpenAI API Key: trước đây KHÔNG gác quyền, ai đăng nhập cũng

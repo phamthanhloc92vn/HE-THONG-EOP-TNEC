@@ -13,6 +13,14 @@ import { canAccessPath, resolveEffectivePlan, accessDenialReason } from "@/lib/a
 import { fetchApprovalPermissions, NO_APPROVAL_PERMISSIONS, type ApprovalPermissions } from "@/lib/approvers";
 import { emailFieldMatches } from "@/lib/emailMatch";
 
+const MAINTENANCE_FLAG = "hcns_locked_out";
+const setMaintenanceFlag = (on: boolean) => {
+  try {
+    if (on) sessionStorage.setItem(MAINTENANCE_FLAG, "1");
+    else sessionStorage.removeItem(MAINTENANCE_FLAG);
+  } catch {}
+};
+
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const tenant = useTenantConfig();
@@ -33,6 +41,24 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const [userPerms, setUserPerms] = useState<ApprovalPermissions>(NO_APPROVAL_PERMISSIONS);
   
   const lastCheckedEmail = useRef<string | null>(null);
+  // Công tắc "Khoá tất cả tài khoản" — màn hình đăng nhập đọc để hiện thông báo
+  // bảo trì (anon đọc được khoá này nhờ migration 162).
+  // Khoá THEO PHÒNG thì màn hình đăng nhập (chưa biết ai) không tự biết được,
+  // nên trước khi đăng xuất ta ghi dấu vào sessionStorage; vào lại được thì xoá.
+  const [maintenance, setMaintenance] = useState(false);
+
+  useEffect(() => {
+    if (session) return;
+    let flagged = false;
+    try { flagged = sessionStorage.getItem(MAINTENANCE_FLAG) === "1"; } catch {}
+    setMaintenance(flagged);
+    supabase
+      .from("tenant_config")
+      .select("value")
+      .eq("key", "lock_all_accounts")
+      .maybeSingle()
+      .then(({ data }) => setMaintenance(flagged || data?.value === true));
+  }, [session]);
 
   useEffect(() => {
     // 1. Get initial session
@@ -91,6 +117,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
         if (allowedData && allowedData.role === "Admin") {
           setIsAdmin(true);
           setStrictAdmin(true); // admin thực sự -> bỏ qua gate gói
+          setMaintenanceFlag(false);
           setAuthError(null);
           lastCheckedEmail.current = userEmail;
           return;
@@ -114,6 +141,27 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
         const empData = (empRows || []).find((r) => emailFieldMatches(r.email, userEmail));
 
         if (empData) {
+          // Công tắc "Khoá tất cả tài khoản" (tenant_config.lock_all_accounts).
+          // Đọc thẳng DB, không qua cache useTenantConfig, để Admin vừa bật là
+          // lần đăng nhập/tải trang kế tiếp đã bị chặn. Đọc lỗi -> coi như tắt.
+          // Kèm khoá theo phòng (locked_departments, khớp đúng employees.department).
+          const { data: lockRows } = await supabase
+            .from("tenant_config")
+            .select("key, value")
+            .in("key", ["lock_all_accounts", "locked_departments"]);
+          const lockAllOn = (lockRows || []).some(r => r.key === "lock_all_accounts" && r.value === true);
+          const lockedDepts = (lockRows || []).find(r => r.key === "locked_departments")?.value;
+          const deptLocked = Array.isArray(lockedDepts) && !!empData.department && lockedDepts.includes(empData.department);
+          // Đang khoá -> đăng xuất hẳn, đưa về màn hình đăng nhập (ở đó hiện
+          // thông báo "Hệ thống đang bảo trì").
+          if (lockAllOn || deptLocked) {
+            setMaintenanceFlag(true);
+            setIsAdmin(false);
+            await supabase.auth.signOut();
+            return;
+          }
+          setMaintenanceFlag(false);
+
           const statusLower = (empData.status || "").toLowerCase().trim();
           if (statusLower.includes("nghỉ việc") || statusLower.includes("nghi viec")) {
             setAuthError("Tài khoản của bạn đã ở trạng thái Nghỉ việc và bị khóa quyền truy cập hệ thống. Vui lòng liên hệ Phòng HCNS.");
@@ -215,6 +263,12 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
               <p className="mt-3 text-[#00AEEF] text-[0.78rem] sm:text-sm font-extrabold uppercase tracking-[0.1em] sm:tracking-[0.14em] leading-snug">
                 {tenant.login_subtitle}
               </p>
+
+              {maintenance && (
+                <p className="mt-6 w-full rounded-xl border border-red-800 bg-red-700 px-3 py-2.5 text-[0.75rem] font-bold leading-relaxed text-white">
+                  Hệ thống đang bảo trì. Vui lòng quay lại sau.
+                </p>
+              )}
 
               {/* Gạch ngăn */}
               <div className="mt-8 mb-5 w-full flex items-center gap-3">
