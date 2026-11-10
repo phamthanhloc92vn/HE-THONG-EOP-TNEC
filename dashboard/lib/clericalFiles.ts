@@ -56,6 +56,9 @@ export function displayNameFromRef(value?: string | null): string {
  * Đổi giá trị lưu trong CSDL thành URL mở được ngay bây giờ.
  * Trả null khi không ký được link (hết quyền, tệp đã bị xoá).
  */
+/** Lý do lần ký link gần nhất thất bại (để giao diện hiện cho người dùng). */
+export let lastClericalError = "";
+
 export async function resolveClericalUrl(value?: string | null): Promise<string | null> {
   if (!value) return null;
 
@@ -63,7 +66,11 @@ export async function resolveClericalUrl(value?: string | null): Promise<string 
     const { data, error } = await supabase.storage
       .from(CLERICAL_PRIVATE_BUCKET)
       .createSignedUrl(pathFromRef(value), CLERICAL_SIGNED_TTL);
-    if (error || !data) return null;
+    if (error || !data) {
+      lastClericalError = `${error?.message || "không rõ"} — ${pathFromRef(value)}`;
+      console.error("[clericalFiles] Không ký được link:", lastClericalError);
+      return null;
+    }
     return data.signedUrl;
   }
 

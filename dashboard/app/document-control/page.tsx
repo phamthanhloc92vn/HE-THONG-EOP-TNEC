@@ -10,8 +10,8 @@ import { useCurrentUser } from "@/lib/useCurrentUser";
 import {
   uploadClericalFile,
   resolveClericalUrl,
+  lastClericalError,
   isPrivateRef,
-  isLegacyPublicUrl,
   pathFromRef,
   displayNameFromRef,
   CLERICAL_PRIVATE_BUCKET,
@@ -36,7 +36,8 @@ import {
   Eye,
   Download,
   ShieldAlert,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from "lucide-react";
 
 interface ClericalDoc {
@@ -91,6 +92,22 @@ export default function DocumentControlPage() {
   );
   const [exporting, setExporting] = useState(false);
   const [zipProgress, setZipProgress] = useState<string | null>(null); // "3/20" khi đang gom file
+  // Hộp thông báo / xác nhận đồng bộ giao diện (thay alert/confirm của trình duyệt)
+  const [dialog, setDialog] = useState<{
+    kind: "success" | "warning" | "error" | "confirm";
+    title: string;
+    lines: string[];
+    okLabel?: string;
+    resolve?: (ok: boolean) => void;
+  } | null>(null);
+  const notify = (kind: "success" | "warning" | "error", title: string, ...lines: string[]) =>
+    setDialog({ kind, title, lines });
+  const askConfirm = (title: string, lines: string[], okLabel: string) =>
+    new Promise<boolean>((resolve) => setDialog({ kind: "confirm", title, lines, okLabel, resolve }));
+  const closeDialog = (ok: boolean) => {
+    dialog?.resolve?.(ok);
+    setDialog(null);
+  };
   const [deleteProgress, setDeleteProgress] = useState<string | null>(null); // xoá file hàng loạt (Admin)
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -115,7 +132,7 @@ export default function DocumentControlPage() {
   const handleOpenPreview = async (url: string, title: string) => {
     const resolved = await resolveClericalUrl(url);
     if (!resolved) {
-      alert("Không mở được tệp này. Có thể tệp đã bị xoá, hoặc tài khoản của bạn chưa có quyền xem Văn thư.");
+      alert("Không mở được tệp này. Có thể tệp đã bị xoá, hoặc tài khoản của bạn chưa có quyền xem Văn thư.\n\nChi tiết: " + lastClericalError);
       return;
     }
     setPreviewUrl(resolved);
@@ -820,8 +837,19 @@ export default function DocumentControlPage() {
   };
 
   // Filters
+  // Lọc theo NGÀY UPLOAD (created_at, giờ địa phương); thiếu created_at thì dùng Ngày/Tháng.
+  const inUploadRange = (d: { created_at?: string; receive_send_date?: string }) => {
+    const day = d.created_at
+      ? new Date(d.created_at).toLocaleDateString("sv-SE")
+      : (d.receive_send_date || "").slice(0, 10);
+    if (exportFrom && (!day || day < exportFrom)) return false;
+    if (exportTo && (!day || day > exportTo)) return false;
+    return true;
+  };
+
   const filteredDocs = docs.filter((d) => {
     if (d.type !== activeTab) return false;
+    if (!inUploadRange(d)) return false;
     const q = search.toLowerCase().trim();
     if (!q) return true;
     return (
@@ -833,7 +861,7 @@ export default function DocumentControlPage() {
     );
   });
 
-  // Xuất Excel tab đang mở, lọc theo khoảng ngày của cột "Ngày/Tháng" (receive_send_date).
+  // Xuất Excel tab đang mở, lọc theo khoảng ngày upload.
   // Để trống cả 2 ô = tải toàn bộ tab. Ô tìm kiếm cũng áp dụng (xuất đúng cái đang thấy).
   const handleExportExcel = async () => {
     const tabLabels: Record<string, string> = {
@@ -844,16 +872,14 @@ export default function DocumentControlPage() {
     };
     const vn = (s: string) => s.split("-").reverse().join("/");
     const rows = filteredDocs.filter((d) => {
-      const day = (d.receive_send_date || "").slice(0, 10);
-      if (exportFrom && (!day || day < exportFrom)) return false;
-      if (exportTo && (!day || day > exportTo)) return false;
+      if (!inUploadRange(d)) return false;
       return true;
     });
     const rangeText = exportFrom || exportTo
       ? `từ ${exportFrom ? vn(exportFrom) : "đầu"} đến ${exportTo ? vn(exportTo) : "nay"}`
       : "";
     if (rows.length === 0) {
-      alert(rangeText ? `Không có công văn nào ${rangeText}.` : "Không có công văn nào để xuất.");
+      notify("warning", "Không có dữ liệu để xuất", rangeText ? `Không có công văn nào ${rangeText}.` : "Không có công văn nào để xuất.");
       return;
     }
     setExporting(true);
@@ -884,7 +910,7 @@ export default function DocumentControlPage() {
         : "_tat_ca";
       XLSX.writeFile(wb, `${base}${suffix}.xlsx`);
     } catch (e) {
-      alert("Lỗi khi xuất Excel: " + (e as Error).message);
+      notify("error", "Lỗi khi xuất Excel", (e as Error).message);
     } finally {
       setExporting(false);
     }
@@ -896,13 +922,11 @@ export default function DocumentControlPage() {
   // liệt kê vào file "DANH-SACH-CHUA-TAI.txt" trong ZIP để tải tay.
   const handleDownloadOriginalsZip = async () => {
     const rows = filteredDocs.filter((d) => {
-      const day = (d.receive_send_date || "").slice(0, 10);
-      if (exportFrom && (!day || day < exportFrom)) return false;
-      if (exportTo && (!day || day > exportTo)) return false;
+      if (!inUploadRange(d)) return false;
       return !!(d.original_file_url || d.scan_file_url);
     });
     if (rows.length === 0) {
-      alert("Không có công văn nào có file đính kèm trong khoảng ngày đã chọn.");
+      notify("warning", "Không có file để tải", "Không có công văn nào có file đính kèm trong khoảng ngày đã chọn.");
       return;
     }
     setZipProgress(`0/${rows.length}`);
@@ -910,6 +934,7 @@ export default function DocumentControlPage() {
       const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       const skipped: string[] = [];
+      const reasons: Record<string, number> = {}; // thống kê lý do lỗi để hiện trong thông báo
       const usedNames = new Set<string>();
       const clean = (s: string) =>
         s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D")
@@ -917,22 +942,38 @@ export default function DocumentControlPage() {
 
       let done = 0;
       for (const d of rows) {
-        const ref = (d.original_file_url || d.scan_file_url)!;
         const label = `STT ${d.stt} - ${d.doc_number || "(chưa có số)"}`;
         try {
-          let blob: Blob;
-          if (isPrivateRef(ref)) {
-            const { data, error } = await supabase.storage
-              .from(CLERICAL_PRIVATE_BUCKET)
-              .download(pathFromRef(ref));
-            if (error || !data) throw new Error(error?.message || "không tải được");
-            blob = data;
-          } else if (isLegacyPublicUrl(ref)) {
-            const res = await fetch(ref);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            blob = await res.blob();
-          } else {
-            skipped.push(`${label}: link ngoài -> ${ref}`);
+          // Thử lần lượt Bản gốc rồi Bản scan; lấy cái đầu tiên tải được (kho riêng tư / link cũ)
+          const refs = [d.original_file_url, d.scan_file_url].filter((r): r is string => !!r);
+          let ref = "";
+          let blob: Blob | null = null;
+          const errs: string[] = [];
+          for (const r of refs) {
+            try {
+              if (isPrivateRef(r)) {
+                const { data, error } = await supabase.storage
+                  .from(CLERICAL_PRIVATE_BUCKET)
+                  .download(pathFromRef(r));
+                if (error || !data) throw new Error(error?.message || "không tải được");
+                blob = data;
+              } else {
+                const res = await fetch(r);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                blob = await res.blob();
+              }
+              ref = r;
+              break;
+            } catch (e) {
+              errs.push(`${r} (${(e as Error).message})`);
+              let host = "";
+              try { host = new URL(r).host; } catch { /* không phải URL */ }
+              const key = `${isPrivateRef(r) ? "Kho riêng tư" : host ? `Link ngoài ${host}` : "Link không hợp lệ"}: ${(e as Error).message}`;
+              reasons[key] = (reasons[key] || 0) + 1;
+            }
+          }
+          if (!blob) {
+            skipped.push(`${label}: không tải được -> ${errs.join(" | ")}`);
             continue;
           }
           const srcName = displayNameFromRef(ref) || d.file_name || "file.pdf";
@@ -968,11 +1009,20 @@ export default function DocumentControlPage() {
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      const okCount = rows.length - skipped.length;
       if (skipped.length) {
-        alert(`Đã tải ${rows.length - skipped.length}/${rows.length} file. ${skipped.length} công văn chưa gom được (link Drive hoặc lỗi), xem file DANH-SACH-CHUA-TAI.txt trong ZIP.`);
+        notify(
+          okCount > 0 ? "warning" : "error",
+          `Đã tải ${okCount}/${rows.length} file`,
+          `${skipped.length} công văn chưa gom được (link Drive/OneDrive hoặc file lỗi).`,
+          ...Object.entries(reasons).slice(0, 4).map(([k, n]) => `• ${n} file — ${k}`),
+          "Xem chi tiết trong file DANH-SACH-CHUA-TAI.txt bên trong ZIP."
+        );
+      } else {
+        notify("success", "Tải file gốc thành công", `Đã gom ${okCount} file vào ZIP.`);
       }
     } catch (e) {
-      alert("Lỗi khi tạo file ZIP: " + (e as Error).message);
+      notify("error", "Lỗi khi tạo file ZIP", (e as Error).message);
     } finally {
       setZipProgress(null);
     }
@@ -988,23 +1038,26 @@ export default function DocumentControlPage() {
     if (!currentUser?.isAdmin) return;
     const targets = filteredDocs
       .filter((d) => {
-        const day = (d.receive_send_date || "").slice(0, 10);
-        if (exportFrom && (!day || day < exportFrom)) return false;
-        if (exportTo && (!day || day > exportTo)) return false;
-        return isPrivateRef(d.original_file_url) || isPrivateRef(d.scan_file_url);
+        if (!inUploadRange(d)) return false;
+      return isPrivateRef(d.original_file_url) || isPrivateRef(d.scan_file_url);
       })
       .filter((d) => !!d.id);
     if (targets.length === 0) {
-      alert("Không có file nào trong kho để xoá ở khoảng ngày đã chọn.");
+      notify("warning", "Không có file để xoá", "Không có file nào trong kho để xoá ở khoảng ngày đã chọn.");
       return;
     }
     const vn = (s: string) => s.split("-").reverse().join("/");
     const rangeText = exportFrom || exportTo
       ? `từ ${exportFrom ? vn(exportFrom) : "đầu"} đến ${exportTo ? vn(exportTo) : "nay"}`
       : "(toàn bộ tab)";
-    const ok = window.confirm(
-      `XOÁ VĨNH VIỄN file đính kèm (bản gốc + bản scan) của ${targets.length} công văn ${rangeText}?\n\n` +
-      `• Dòng công văn vẫn giữ, chỉ mất file.\n• Link Google Drive/OneDrive không bị xoá.\n• KHÔNG khôi phục được — nên bấm "Tải file gốc" trước.`
+    const ok = await askConfirm(
+      `Xoá vĩnh viễn file của ${targets.length} công văn?`,
+      [
+        `Phạm vi: ${rangeText}. Xoá cả bản gốc và bản scan.`,
+        "Dòng công văn vẫn giữ, chỉ mất file; link Google Drive/OneDrive không bị xoá.",
+        'Không khôi phục được — nên bấm "Tải file gốc" trước.',
+      ],
+      "Xoá file"
     );
     if (!ok) return;
 
@@ -1038,13 +1091,16 @@ export default function DocumentControlPage() {
         if (error) removeErr = error.message;
       }
       await fetchDocuments();
-      alert(
-        `Đã xoá file của ${targets.length - failed}/${targets.length} công văn.` +
-        (failed ? `\n${failed} công văn không cập nhật được nên giữ nguyên file.` : "") +
-        (removeErr ? `\nCảnh báo khi xoá trong kho: ${removeErr} (link trên bảng đã gỡ, file có thể còn sót trong kho).` : "")
+      const lines: string[] = [];
+      if (failed) lines.push(`${failed} công văn không cập nhật được nên giữ nguyên file.`);
+      if (removeErr) lines.push(`Cảnh báo khi xoá trong kho: ${removeErr} (link trên bảng đã gỡ, file có thể còn sót trong kho).`);
+      notify(
+        failed || removeErr ? "warning" : "success",
+        `Đã xoá file của ${targets.length - failed}/${targets.length} công văn`,
+        ...lines
       );
     } catch (e) {
-      alert("Lỗi khi xoá file: " + (e as Error).message);
+      notify("error", "Lỗi khi xoá file", (e as Error).message);
       fetchDocuments();
     } finally {
       setDeleteProgress(null);
@@ -1151,7 +1207,7 @@ export default function DocumentControlPage() {
               <div className="flex items-center gap-3">
                 <div
                   className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-sm"
-                  title="Khoảng ngày cần tải theo cột Ngày/Tháng (để trống = không giới hạn)"
+                  title="Khoảng ngày upload (để trống = không giới hạn)"
                 >
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Từ</span>
                   <input
@@ -1768,6 +1824,51 @@ export default function DocumentControlPage() {
           }
           onClose={() => setViewingDoc(null)}
         />
+      )}
+
+      {dialog && (
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-6 flex gap-4">
+              <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${
+                dialog.kind === "success" ? "bg-emerald-100 text-emerald-600"
+                : dialog.kind === "warning" ? "bg-amber-100 text-amber-600"
+                : "bg-rose-100 text-rose-600"
+              }`}>
+                {dialog.kind === "success" ? <CheckCircle size={20} />
+                  : dialog.kind === "warning" ? <AlertTriangle size={20} />
+                  : dialog.kind === "confirm" ? <Trash2 size={20} />
+                  : <AlertCircle size={20} />}
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-heading font-bold text-slate-800 text-sm">{dialog.title}</h3>
+                <div className="mt-2 space-y-1.5">
+                  {dialog.lines.map((l, i) => (
+                    <p key={i} className="text-xs text-slate-500 leading-relaxed break-words">{l}</p>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+              {dialog.kind === "confirm" && (
+                <button
+                  onClick={() => closeDialog(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-all"
+                >
+                  Huỷ
+                </button>
+              )}
+              <button
+                onClick={() => closeDialog(true)}
+                className={`px-5 py-2 rounded-xl text-xs font-bold text-white shadow-sm active:scale-95 transition-all ${
+                  dialog.kind === "confirm" ? "bg-rose-600 hover:bg-rose-700" : "bg-[#005BAC] hover:bg-[#004a8c]"
+                }`}
+              >
+                {dialog.kind === "confirm" ? dialog.okLabel || "Đồng ý" : "Đóng"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showModal && (
