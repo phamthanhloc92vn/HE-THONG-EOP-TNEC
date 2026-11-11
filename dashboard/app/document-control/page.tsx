@@ -1028,22 +1028,17 @@ export default function DocumentControlPage() {
     }
   };
 
-  // XOÁ HÀNG LOẠT file đính kèm (Bản gốc + Bản scan) trong kho riêng tư, cùng phạm vi
-  // với nút "Tải file gốc" (tab đang mở + khoảng ngày + ô tìm kiếm). CHỈ Admin.
-  // - Giữ nguyên dòng công văn, chỉ bỏ trống ô link file.
+  // XOÁ TOÀN BỘ dòng công văn (kèm Bản gốc + Bản scan trong kho riêng tư) theo
+  // bộ lọc đang áp dụng (tab đang mở + khoảng ngày upload + ô tìm kiếm); không lọc
+  // ngày thì xoá hết cả tab. CHỈ Admin.
   // - Link Drive/OneDrive và tệp cũ ở kho công khai: không đụng tới.
-  // - Thứ tự: ghi CSDL TRƯỚC rồi mới xoá file (bài học storage-write-order):
-  //   dòng nào RLS không cho sửa thì file của dòng đó được giữ lại.
+  // - Thứ tự: xoá dòng CSDL TRƯỚC rồi mới xoá file (bài học storage-write-order):
+  //   dòng nào RLS không cho xoá thì file của dòng đó được giữ lại.
   const handleDeleteOriginalsBulk = async () => {
     if (!currentUser?.isAdmin) return;
-    const targets = filteredDocs
-      .filter((d) => {
-        if (!inUploadRange(d)) return false;
-      return isPrivateRef(d.original_file_url) || isPrivateRef(d.scan_file_url);
-      })
-      .filter((d) => !!d.id);
+    const targets = filteredDocs.filter((d) => !!d.id);
     if (targets.length === 0) {
-      notify("warning", "Không có file để xoá", "Không có file nào trong kho để xoá ở khoảng ngày đã chọn.");
+      notify("warning", "Không có công văn để xoá", "Không có công văn nào trong bộ lọc đang chọn.");
       return;
     }
     const vn = (s: string) => s.split("-").reverse().join("/");
@@ -1051,13 +1046,13 @@ export default function DocumentControlPage() {
       ? `từ ${exportFrom ? vn(exportFrom) : "đầu"} đến ${exportTo ? vn(exportTo) : "nay"}`
       : "(toàn bộ tab)";
     const ok = await askConfirm(
-      `Xoá vĩnh viễn file của ${targets.length} công văn?`,
+      `Xoá vĩnh viễn ${targets.length} công văn?`,
       [
-        `Phạm vi: ${rangeText}. Xoá cả bản gốc và bản scan.`,
-        "Dòng công văn vẫn giữ, chỉ mất file; link Google Drive/OneDrive không bị xoá.",
-        'Không khôi phục được — nên bấm "Tải file gốc" trước.',
+        `Phạm vi: ${rangeText}. Xoá cả dòng công văn, bản gốc và bản scan.`,
+        "Link Google Drive/OneDrive không bị xoá.",
+        'Không khôi phục được — nên bấm "Tải Excel" và "Tải file gốc" trước.',
       ],
-      "Xoá file"
+      "Xoá toàn bộ"
     );
     if (!ok) return;
 
@@ -1066,22 +1061,24 @@ export default function DocumentControlPage() {
     let failed = 0;
     let done = 0;
     try {
-      for (const d of targets) {
-        const patch: Partial<ClericalDoc> = {};
-        if (isPrivateRef(d.original_file_url)) patch.original_file_url = "";
-        if (isPrivateRef(d.scan_file_url)) patch.scan_file_url = "";
+      // Xoá dòng theo lô 100 id; chỉ dòng thực sự bị xoá mới gom file để xoá
+      for (let i = 0; i < targets.length; i += 100) {
+        const batch = targets.slice(i, i + 100);
         const { data, error } = await supabase
           .from("clerical_documents")
-          .update(patch)
-          .eq("id", d.id!)
+          .delete()
+          .in("id", batch.map((d) => d.id!))
           .select("id");
-        if (error || !data || data.length === 0) {
-          failed++;
-        } else {
+        const deleted = new Set((error ? [] : data || []).map((r) => r.id));
+        for (const d of batch) {
+          if (!deleted.has(d.id)) {
+            failed++;
+            continue;
+          }
           if (isPrivateRef(d.original_file_url)) paths.push(pathFromRef(d.original_file_url!));
           if (isPrivateRef(d.scan_file_url)) paths.push(pathFromRef(d.scan_file_url!));
         }
-        done++;
+        done += batch.length;
         setDeleteProgress(`${done}/${targets.length}`);
       }
       // Xoá file theo lô 100 đường dẫn
@@ -1092,15 +1089,15 @@ export default function DocumentControlPage() {
       }
       await fetchDocuments();
       const lines: string[] = [];
-      if (failed) lines.push(`${failed} công văn không cập nhật được nên giữ nguyên file.`);
-      if (removeErr) lines.push(`Cảnh báo khi xoá trong kho: ${removeErr} (link trên bảng đã gỡ, file có thể còn sót trong kho).`);
+      if (failed) lines.push(`${failed} công văn không xoá được nên giữ nguyên.`);
+      if (removeErr) lines.push(`Cảnh báo khi xoá trong kho: ${removeErr} (dòng đã xoá, file có thể còn sót trong kho).`);
       notify(
         failed || removeErr ? "warning" : "success",
-        `Đã xoá file của ${targets.length - failed}/${targets.length} công văn`,
+        `Đã xoá ${targets.length - failed}/${targets.length} công văn`,
         ...lines
       );
     } catch (e) {
-      notify("error", "Lỗi khi xoá file", (e as Error).message);
+      notify("error", "Lỗi khi xoá công văn", (e as Error).message);
       fetchDocuments();
     } finally {
       setDeleteProgress(null);
@@ -1251,12 +1248,12 @@ export default function DocumentControlPage() {
                     onClick={handleDeleteOriginalsBulk}
                     disabled={!!deleteProgress || !!zipProgress}
                     className="flex items-center gap-1.5 bg-white border border-rose-500 text-rose-600 hover:bg-rose-50 disabled:opacity-60 text-xs font-bold px-4 py-2.5 rounded-xl transition-all active:scale-95 shadow-sm"
-                    title="Chỉ Admin: xoá vĩnh viễn file đính kèm của các công văn trong khoảng ngày đã chọn"
+                    title="Chỉ Admin: xoá vĩnh viễn các công văn (kèm file gốc) theo bộ lọc; không lọc ngày thì xoá hết"
                   >
                     {deleteProgress ? (
                       <><Loader2 size={14} className="animate-spin" /> Đang xoá {deleteProgress}</>
                     ) : (
-                      <><Trash2 size={14} /> Xóa file gốc</>
+                      <><Trash2 size={14} /> Xóa toàn bộ</>
                     )}
                   </button>
                 )}
