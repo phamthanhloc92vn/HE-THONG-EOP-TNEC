@@ -297,6 +297,8 @@ export default function TaskManagementPage() {
 
   // Popup xác nhận xoá công việc — thay window.confirm, hiện giữa màn hình.
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
+  // Nút "Xóa task" (chỉ Admin): xoá hàng loạt các thẻ đang hiện theo bộ lọc.
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
   const [deletingTask, setDeletingTask] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editAssignee, setEditAssignee] = useState("");
@@ -850,6 +852,40 @@ export default function TaskManagementPage() {
       console.error("Error deleting task:", err);
     } finally {
       setDeletingTask(false);
+    }
+  };
+
+  // XOÁ HÀNG LOẠT (chỉ Admin): đúng những thẻ đang hiện trên bảng (filteredTasks —
+  // đã qua tìm kiếm, tháng/khoảng ngày, dự án, phòng ban/BĐH, ưu tiên), kèm tệp
+  // đính kèm. Xoá dòng CSDL TRƯỚC rồi mới xoá tệp: dòng nào không xoá được thì
+  // tệp của dòng đó được giữ lại.
+  const confirmBulkDelete = async () => {
+    if (!currentUser?.isAdmin) return;
+    const targets = filteredTasks;
+    setDeletingTask(true);
+    let failed = 0;
+    try {
+      for (let i = 0; i < targets.length; i += 100) {
+        const batch = targets.slice(i, i + 100);
+        const { data, error } = await supabase
+          .from("tasks")
+          .delete()
+          .in("id", batch.map(t => t.id))
+          .select("id");
+        const deleted = new Set((error ? [] : data || []).map(r => r.id));
+        for (const t of batch) {
+          if (!deleted.has(t.id)) { failed++; continue; }
+          t.attachment_files.forEach(f => removeTaskFile(f.path));
+        }
+      }
+      if (failed) alert(`${failed}/${targets.length} công việc không xoá được nên giữ nguyên.`);
+    } catch (err) {
+      console.error("Error bulk deleting tasks:", err);
+      alert("Lỗi khi xoá công việc: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setDeletingTask(false);
+      setShowBulkDelete(false);
+      fetchTasks();
     }
   };
 
@@ -1483,7 +1519,7 @@ export default function TaskManagementPage() {
                 <>
                   {/* Lớp phủ trong suốt: bấm ra ngoài để đóng */}
                   <div className="fixed inset-0 z-20" onClick={() => setShowDateFilter(false)} />
-                  <div className="absolute right-0 top-full mt-2 z-30 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 w-64 space-y-3">
+                  <div className="absolute left-0 top-full mt-2 z-30 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 w-64 space-y-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Chọn nhanh theo tháng</label>
                       <input
@@ -1537,6 +1573,17 @@ export default function TaskManagementPage() {
               {exportingDone ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               Tải công việc hoàn thành
             </button>
+
+            {currentUser?.isAdmin && (
+              <button
+                onClick={() => setShowBulkDelete(true)}
+                disabled={loading || deletingTask || filteredTasks.length === 0}
+                title={`Chỉ Admin: xoá vĩnh viễn ${filteredTasks.length} công việc đang hiện (theo bộ lọc hiện tại)`}
+                className="flex items-center gap-1.5 bg-white border border-rose-500 text-rose-600 hover:bg-rose-50 text-xs font-bold px-4 py-2 rounded-xl transition-all active:scale-95 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+              >
+                <Trash2 size={14} /> Xóa task
+              </button>
+            )}
 
             <button
               onClick={() => {
@@ -2648,10 +2695,10 @@ export default function TaskManagementPage() {
       )}
 
       {/* Popup xác nhận xoá công việc — thay window.confirm, hiện giữa màn hình */}
-      {deleteTaskId && (
+      {(deleteTaskId || showBulkDelete) && (
         <div
           className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
-          onClick={() => !deletingTask && setDeleteTaskId(null)}
+          onClick={() => { if (!deletingTask) { setDeleteTaskId(null); setShowBulkDelete(false); } }}
         >
           <div
             className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150 flex flex-col"
@@ -2663,7 +2710,7 @@ export default function TaskManagementPage() {
               </h3>
               <button
                 type="button"
-                onClick={() => setDeleteTaskId(null)}
+                onClick={() => { setDeleteTaskId(null); setShowBulkDelete(false); }}
                 disabled={deletingTask}
                 className="text-white/80 hover:text-white disabled:opacity-50"
               >
@@ -2673,7 +2720,9 @@ export default function TaskManagementPage() {
 
             <div className="p-6">
               <p className="text-xs text-slate-600 font-semibold leading-relaxed">
-                Bạn có chắc chắn muốn xoá công việc này?{" "}
+                {showBulkDelete
+                  ? `Xoá vĩnh viễn ${filteredTasks.length} công việc đang hiện trên bảng (theo bộ lọc hiện tại), kèm tệp đính kèm?`
+                  : "Bạn có chắc chắn muốn xoá công việc này?"}{" "}
                 <span className="text-rose-600">Dữ liệu sẽ xoá trên hệ thống.</span>
               </p>
             </div>
@@ -2681,7 +2730,7 @@ export default function TaskManagementPage() {
             <div className="px-6 pb-5 pt-1 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setDeleteTaskId(null)}
+                onClick={() => { setDeleteTaskId(null); setShowBulkDelete(false); }}
                 disabled={deletingTask}
                 className="px-4 py-2 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 text-xs disabled:opacity-50"
               >
@@ -2689,7 +2738,7 @@ export default function TaskManagementPage() {
               </button>
               <button
                 type="button"
-                onClick={confirmDeleteTask}
+                onClick={showBulkDelete ? confirmBulkDelete : confirmDeleteTask}
                 disabled={deletingTask}
                 className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300 text-white font-bold rounded-xl shadow-md transition-all active:scale-95 text-xs"
               >
