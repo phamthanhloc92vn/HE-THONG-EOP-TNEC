@@ -34,8 +34,10 @@ import {
   CheckCircle2,
   Building2,
   Trash2,
-  Download
+  Download,
+  Target
 } from "lucide-react";
+import Link from "next/link";
 import TaskAttachmentField from "@/components/TaskAttachmentField";
 import {
   TaskFile, parseTaskFiles, uploadTaskFile, resolveTaskFileUrl, removeTaskFile,
@@ -1612,6 +1614,13 @@ export default function TaskManagementPage() {
             >
               <Plus size={14} /> Thêm công việc
             </button>
+            {/* Sang trang KPI Công việc (app/tasks/kpi). Phạm vi xem bên đó khớp bảng này. */}
+            <Link
+              href="/tasks/kpi"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-indigo-600 bg-indigo-500/10 border border-indigo-500/40 rounded-xl hover:bg-indigo-500/20 transition-all active:scale-95"
+            >
+              <Target size={14} /> Xem KPI công việc
+            </Link>
             </div>
           </div>
 
