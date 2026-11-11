@@ -7,6 +7,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   ClipboardList,
+  Target,
   Calculator,
   Building2,
   FileText,
@@ -145,6 +146,7 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
     { label: "Hướng dẫn EOP", href: "/huong-dan-eop", icon: PlayCircle },
     { label: "Vị trí dự án", href: "/vi-tri-du-an", icon: MapPin },
     { label: "Quản lý Công việc", href: "/tasks", icon: ClipboardList },
+    { label: "KPI Công việc", href: "/tasks/kpi", icon: Target },
     { label: "Lịch công việc", href: "/calendar", icon: CalendarRange },
     { label: "Tuyển dụng", href: "/recruitment", icon: Briefcase },
     { label: "Danh sách nhân viên", href: "/employees", icon: Users },
@@ -408,6 +410,8 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
           isActive = pathname === path && activeTab === tabParam;
         } else {
           isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href) && !pathname.startsWith("/settings"));
+          // /tasks/kpi có mục riêng — đừng sáng luôn mục "Quản lý Công việc".
+          if (item.href === "/tasks" && pathname.startsWith("/tasks/kpi")) isActive = false;
         }
 
         const linkEl = (

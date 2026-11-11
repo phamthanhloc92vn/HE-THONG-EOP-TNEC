@@ -14,6 +14,8 @@ import { useDepartments } from "@/lib/departments";
 import { useProjectCatalog } from "@/lib/projectCatalog";
 import TaskTrackingPanel from "@/components/TaskTrackingPanel";
 import TaskCommentPanel from "@/components/TaskCommentPanel";
+import TaskKpiPanel from "@/components/TaskKpiPanel";
+import { groupProgress } from "@/lib/taskKpi";
 import {
   Calendar,
   Paperclip,
@@ -78,6 +80,13 @@ interface Task {
   // Trạng thái THEO DÕI (migration 039), tách khỏi `status`: status quyết định
   // task nằm ở cột nào, cột này chỉ nói việc theo dõi còn chạy hay đã xong.
   tracking_status?: string | null;
+  // KPI (migration 164) — xem lib/taskKpi.ts và components/TaskKpiPanel.tsx.
+  submitted_at?: string | null;
+  parent_id?: string | null;
+  kpi_weight?: number | null;
+  kpi_hold?: boolean;
+  kpi_hold_reason?: string | null;
+  is_group?: boolean;
 }
 
 // Trưởng phòng / Phó phòng / Tổ trưởng — quản lý cấp phòng: thấy cả phòng mình,
@@ -403,7 +412,13 @@ export default function TaskManagementPage() {
           project_name: t.project_name || "",
           work_group: t.work_group || "",
           work_source: t.work_source || "",
-          tracking_status: t.tracking_status || "active"
+          tracking_status: t.tracking_status || "active",
+          submitted_at: t.submitted_at || null,
+          parent_id: t.parent_id || null,
+          kpi_weight: t.kpi_weight ?? null,
+          kpi_hold: !!t.kpi_hold,
+          kpi_hold_reason: t.kpi_hold_reason || null,
+          is_group: !!t.is_group,
         }));
         setTasks(mappedTasks);
       }
@@ -1742,6 +1757,16 @@ export default function TaskManagementPage() {
                                   )}
                                 </div>
                                 <p className={`font-heading font-bold text-xs leading-snug line-clamp-2 ${cardStyle.title}`}>{task.title}</p>
+                                {(task.is_group || task.parent_id || task.kpi_hold) && (
+                                  <p className="mt-1 text-[9px] font-bold text-slate-500">
+                                    {task.is_group && (() => {
+                                      const kids = tasks.filter(c => c.parent_id === task.id);
+                                      return `Task tổng · ${kids.length} đầu mục · ${groupProgress(kids)}%`;
+                                    })()}
+                                    {task.parent_id && `↳ Đầu mục · ${task.kpi_weight ?? 0}%`}
+                                    {task.kpi_hold && " · Tạm hoãn KPI"}
+                                  </p>
+                                )}
                               </div>
 
                               <div className="space-y-2 pt-2 border-t border-slate-200/40">
@@ -2617,6 +2642,17 @@ export default function TaskManagementPage() {
             {/* Ý KIẾN TRAO ĐỔI — NẰM NGOÀI </form> LÀ CỐ Ý: ô nhập ý kiến đặt
                 trong form sẽ khiến nút gửi/phím Enter submit nhầm "Lưu thay đổi".
                 Chỉ có ở modal SỬA, không có ở modal TẠO — lúc tạo chưa có id. */}
+            {/* KPI: đầu mục con, cờ hoãn — cũng ngoài </form> cùng lý do. key theo
+                id để mở việc khác thì state trong panel làm lại từ đầu. */}
+            <TaskKpiPanel
+              key={editingTask.id}
+              task={editingTask}
+              allTasks={tasks}
+              employees={assignableEmployees}
+              canManage={canManageTasks}
+              onChanged={fetchTasks}
+              notifyAssignee={notifyAssignee}
+            />
             <TaskCommentPanel
               taskId={editingTask.id}
               me={currentUser ? { email: currentUser.email, name: currentUser.name, role: currentUser.role } : null}

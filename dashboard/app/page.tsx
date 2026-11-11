@@ -506,7 +506,7 @@ export default function DashboardPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center h-[500px] text-slate-400 gap-2">
               <Loader2 className="animate-spin text-[#005BAC]" size={36} />
-              <p className="text-xs font-semibold">Đang đồng bộ dữ liệu từ Supabase...</p>
+              <p className="text-xs font-semibold">Đang truy vấn dữ liệu...</p>
             </div>
           ) : (
             <>
