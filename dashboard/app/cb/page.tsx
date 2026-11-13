@@ -20,6 +20,11 @@ import {
 import { isResignedRow } from "@/lib/resigned";
 import { useNoticeBox } from "@/components/ConfirmDialog";
 import GpsCheckinList from "./GpsCheckinList";
+import PayrollCalcTab from "@/components/cb/PayrollCalcTab";
+import PayrollKpiTab from "@/components/cb/PayrollKpiTab";
+import { computePayslip } from "@/lib/payroll";
+import PayrollSettingsTab from "@/components/cb/PayrollSettingsTab";
+import { usePayrollSettings } from "@/components/cb/usePayrollSettings";
 import {
   User,
   Clock,
@@ -125,6 +130,8 @@ interface Contract {
   performance_bonus?: number | null;
   allowances?: number | null;
   total_income?: number | null;
+  /** Số người phụ thuộc (migration 165) — giảm trừ gia cảnh khi tính thuế TNCN. */
+  dependents?: number | null;
   last_salary_adj_date?: string;
   status: string;
   notes?: string;
@@ -152,13 +159,6 @@ const isInternalContractNumber = (n?: string | null) =>
   !!n && String(n).startsWith(INTERNAL_CONTRACT_PREFIX);
 
 // --- MOCK DATA FOR C&B SUBSECTIONS ---
-const MOCK_SALARY_INFO = [
-  { id: "1", name: "Nguyễn Văn An", base: 18000000, insurance: 5000000, phone: 300000, lunch: 730000, gas: 500000, total: 19530000 },
-  { id: "2", name: "Trần Thị Bích", base: 15000000, insurance: 5000000, phone: 300000, lunch: 730000, gas: 500000, total: 16530000 },
-  { id: "3", name: "Lê Thị Chi", base: 14000000, insurance: 4500000, phone: 200000, lunch: 730000, gas: 500000, total: 15430000 },
-  { id: "4", name: "Phạm Văn Dũng", base: 22000000, insurance: 6000000, phone: 500000, lunch: 730000, gas: 1000000, total: 24230000 }
-];
-
 const MOCK_PROMOTIONS = [
   { name: "Nguyễn Văn An", oldRole: "Nhân viên Marketing", newRole: "Trưởng nhóm Marketing", oldDept: "Phòng HCNS", newDept: "Phòng HCNS", date: "2026-01-01", type: "Thăng chức" },
   { name: "Phạm Văn Dũng", oldRole: "Kỹ sư giám sát", newRole: "Chỉ huy phó", oldDept: "Phòng Dự án", newDept: "Dự án Vàm Lẽo", date: "2026-03-15", type: "Bổ nhiệm" },
@@ -219,6 +219,9 @@ const ALLOWANCE_FALLBACK: AllowancePolicy[] = [
   { code: "phone", name: "Điện thoại liên lạc", target: "Toàn bộ tài khoản", kind: "threshold", per_day_amount: null, days_per_month: null, threshold_days: 15, full_amount: 100000, reduced_amount: 50000, sort_order: 3 }
 ];
 
+// 0.015 -> "1.5%" (tối đa 2 số lẻ)
+const pctLabel = (r: number) => `${+(r * 100).toFixed(2)}%`;
+
 const formatVnd = (n: number | null) =>
   n === null || n === undefined ? "—" : `${n.toLocaleString("vi-VN")} đ`;
 
@@ -228,13 +231,6 @@ const allowanceMonthly = (p: AllowancePolicy) =>
   p.kind === "per_day"
     ? (p.per_day_amount || 0) * (p.days_per_month || 0)
     : (p.full_amount || 0);
-
-const MOCK_BHXH_LOGS = [
-  { name: "Nguyễn Văn An", code: "0123456789", base: 18000000, SI: 1440000, HI: 270000, UI: 180000, company_total: 3870000, booklet: "Công ty giữ" },
-  { name: "Trần Thị Bích", code: "0123456790", base: 15000000, SI: 1200000, HI: 225000, UI: 150000, company_total: 3225000, booklet: "Công ty giữ" },
-  { name: "Lê Thị Chi", code: "0123456791", base: 14000000, SI: 1120000, HI: 210000, UI: 140000, company_total: 3010000, booklet: "Công ty giữ" },
-  { name: "Phạm Văn Dũng", code: "0123456792", base: 22000000, SI: 1760000, HI: 330000, UI: 220000, company_total: 4730000, booklet: "Công ty giữ" }
-];
 
 // ─── ĐỊNH MỨC TRỢ CẤP PHÚC LỢI (bảng `benefit_policies`, migration 047) ───
 // Mỗi cấp có 2 phần: tiền mặt (`*_amount`) và hiện vật (`*_gift`, tên hiện vật
@@ -402,14 +398,6 @@ const TNEC_HOLIDAYS = [
   { id: "vn_womens_day_2026", holiday: "Ngày Phụ nữ VN 20/10", date: "2026-10-20", status: "Kế hoạch", desc: "Thưởng ngày Phụ nữ Việt Nam" }
 ];
 
-const HISTORICAL_SALARY_TREND = [
-  { name: "T1", "Tổng lương (Tỷ)": 1.45, "Đóng BHXH (Triệu)": 152 },
-  { name: "T2", "Tổng lương (Tỷ)": 1.46, "Đóng BHXH (Triệu)": 153 },
-  { name: "T3", "Tổng lương (Tỷ)": 1.49, "Đóng BHXH (Triệu)": 158 },
-  { name: "T4", "Tổng lương (Tỷ)": 1.51, "Đóng BHXH (Triệu)": 160 },
-  { name: "T5", "Tổng lương (Tỷ)": 1.54, "Đóng BHXH (Triệu)": 165 },
-  { name: "T6", "Tổng lương (Tỷ)": 1.58, "Đóng BHXH (Triệu)": 170 }
-];
 
 // --- CLIENT-SIDE DEPT NORMALIZATION & MATCHING HELPERS ---
 const normalizeDeptClient = (raw: string | null | undefined): string => {
@@ -754,6 +742,8 @@ export default function CBPage() {
   // Authorization states
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [hasFullAccess, setHasFullAccess] = useState(false);
+  // Cài đặt chung bảng lương (migration 167) — chỉ nạp khi có quyền lương (RLS chặn người khác)
+  const { settings: payrollSettings, setSettings: setPayrollSettings } = usePayrollSettings(hasFullAccess);
 
   // Danh bạ ĐẦY ĐỦ (tên / chức danh / phòng ban) từ view `employees_directory` — view
   // này không chứa PII nên mọi tài khoản đều đọc được. Bắt buộc phải tách khỏi state
@@ -1751,6 +1741,23 @@ export default function CBPage() {
   const isGpsTimesheet = timesheetSource === "gps";
   const activeTimesheetMatrix = isGpsTimesheet ? gpsTimesheetMatrix : timesheetMatrix;
   const activeTimesheetMonth = isGpsTimesheet ? gpsTimesheet?.month || "" : timesheetMonth;
+
+  // Bảng lương (Tính lương + Lương theo KPI) lấy đúng bảng công đang nạp:
+  // file máy chấm công VP và/hoặc GPS các BĐH cùng tháng
+  const payrollMonth = timesheetMonth || gpsTimesheet?.month || "";
+  // Phòng ban lấy theo Hồ sơ nhân viên HIỆN TẠI (gốc), không theo cột phòng ban của file máy
+  // chấm công đã lưu lúc nạp — đổi phòng trong hồ sơ thì bảng lương/KPI đổi theo ngay.
+  const payrollRows = useMemo(() => {
+    const cleanCode = (c?: string) => String(c || "").replace(/^0+/, "").trim();
+    return [
+      ...(timesheetMonth === payrollMonth ? timesheetMatrix.rows : []),
+      ...(gpsTimesheet?.month === payrollMonth ? gpsTimesheetMatrix.rows : []),
+    ].map(r => {
+      const emp = employees.find(e => cleanCode(r.employeeCode) && cleanCode(e.employee_code) === cleanCode(r.employeeCode))
+        || employees.find(e => normalizeText(e.name) === normalizeText(r.name));
+      return emp?.department?.trim() ? { ...r, department: emp.department.trim() } : r;
+    });
+  }, [timesheetMonth, payrollMonth, timesheetMatrix, gpsTimesheet, gpsTimesheetMatrix, employees]);
 
   // Số ngày công CHÍNH THỨC của mỗi nhân viên = đúng cột "Tổng ngày công" của bảng tổng hợp
   // (văn phòng + công tác + phép có lương, đã ưu tiên giải trình trước ngày phép).
@@ -4580,13 +4587,19 @@ export default function CBPage() {
     }
   };
 
-  const filteredSalaryInfo = useMemo(() => {
-    return MOCK_SALARY_INFO.filter(s => hasFullAccess || s.name === currentUser?.name);
-  }, [hasFullAccess, currentUser]);
-
-  const filteredBhxhLogs = useMemo(() => {
-    return MOCK_BHXH_LOGS.filter(b => hasFullAccess || b.name === currentUser?.name);
-  }, [hasFullAccess, currentUser]);
+  // Tab BHXH: mỗi nhân viên 1 dòng từ HĐ có lương đóng BH (ưu tiên HĐLĐ thật như tab Hợp đồng).
+  // Tab chỉ hiện với hasFullAccess và bảng contracts đã khoá RLS nên không cần lọc theo người.
+  const insuranceRows = useMemo(() => {
+    const byKey = new Map<string, Contract>();
+    const rank = (c: Contract) => (c.contract_number && !isInternalContractNumber(c.contract_number) ? (c.sign_date ? 2 : 1) : 0);
+    contracts.forEach(c => {
+      if (!c.base_salary_insurance) return;
+      const key = (c.employee_code || "").trim() || normalizeText(c.employee_name || "");
+      const cur = byKey.get(key);
+      if (!cur || rank(c) > rank(cur)) byKey.set(key, c);
+    });
+    return Array.from(byKey.values()).sort((a, b) => (a.employee_name || "").localeCompare(b.employee_name || "", "vi"));
+  }, [contracts]);
 
   // Nhân viên thường chỉ được xem hợp đồng của chính mình, không thấy người khác
   const myVisibleContracts = useMemo(() => {
@@ -4813,27 +4826,22 @@ export default function CBPage() {
     ];
   };
 
+  // Lương dự kiến 1 tháng đủ công (26 ngày) theo HĐ + định mức phụ cấp; chưa có HĐ thì 0.
   const getEmployeeSalary = (emp: Employee) => {
-    const found = MOCK_SALARY_INFO.find(s => s.name === emp.name);
-    if (found) return found;
-    
-    // Hash base salary calculation for fallback
-    let hash = 0;
-    for (let i = 0; i < emp.name.length; i++) {
-      hash = emp.name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    let base = 12000000 + (Math.abs(hash % 10) * 1000000);
-    if (emp.role.toLowerCase().includes("trưởng phòng") || emp.role.toLowerCase().includes("leader") || emp.role.toLowerCase().includes("phó phòng")) {
-      base = 18000000 + (Math.abs(hash % 8) * 1000000);
-    }
-    
-    const insurance = Math.floor(base * 0.3);
-    const phone = 300000;
-    const lunch = 730000;
-    const gas = 500000;
-    const total = base + phone + lunch + gas;
-    
-    return { id: emp.id, name: emp.name, base, insurance, phone, lunch, gas, total };
+    const code = (emp.employee_code || "").toString().trim();
+    const c = insuranceRows.find(r =>
+      (code && (r.employee_code || "").trim() === code) || normalizeText(r.employee_name || "") === normalizeText(emp.name));
+    const base = c?.base_salary_insurance || 0;
+    const policy = (k: string) => allowancePolicies.find(p => p.code === k);
+    const std = payrollSettings.standard_workdays;
+    const lunch = (policy("lunch")?.per_day_amount || 0) * std;
+    const gas = policy("fuel")?.full_amount || 0;
+    const phone = policy("phone")?.full_amount || 0;
+    const total = base ? computePayslip({
+      baseSalary: base, performanceBonus: c?.performance_bonus || 0, workdays: std, holidays: 0,
+      lunch, fuel: gas, phone, dependents: c?.dependents || 0, otTaxFree: 0, otTaxable: 0, backPay: 0, clawback: 0,
+    }, payrollSettings).net : 0;
+    return { id: emp.id, name: emp.name, base, insurance: base, phone, lunch, gas, total };
   };
 
   return (
@@ -4919,7 +4927,9 @@ export default function CBPage() {
 
               {activeTab === "payroll_insurance" && [
                 { id: "calculation", label: "Tính lương" },
-                { id: "insurance", label: "Bảo hiểm xã hội (BHXH)" }
+                { id: "insurance", label: "Bảo hiểm xã hội (BHXH)" },
+                { id: "kpi_salary", label: "Lương theo KPI" },
+                { id: "payroll_settings", label: "Cài đặt chung" }
               ].map(sub => (
                 <button
                   key={sub.id}
@@ -5465,20 +5475,20 @@ export default function CBPage() {
                                   <span className="text-slate-800 font-bold">{getEmployeeSalary(selectedEmp).insurance.toLocaleString("vi-VN")} đ</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-slate-400">Khấu trừ BHXH cá nhân (8%)</span>
-                                  <span className="text-rose-600 font-bold">-{Math.floor(getEmployeeSalary(selectedEmp).insurance * 0.08).toLocaleString("vi-VN")} đ</span>
+                                  <span className="text-slate-400">Khấu trừ BHXH cá nhân ({pctLabel(payrollSettings.bhxh_rate)})</span>
+                                  <span className="text-rose-600 font-bold">-{Math.floor(getEmployeeSalary(selectedEmp).insurance * payrollSettings.bhxh_rate).toLocaleString("vi-VN")} đ</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-slate-400">Khấu trừ BHYT cá nhân (1.5%)</span>
-                                  <span className="text-rose-600 font-bold">-{Math.floor(getEmployeeSalary(selectedEmp).insurance * 0.015).toLocaleString("vi-VN")} đ</span>
+                                  <span className="text-slate-400">Khấu trừ BHYT cá nhân ({pctLabel(payrollSettings.bhyt_rate)})</span>
+                                  <span className="text-rose-600 font-bold">-{Math.floor(getEmployeeSalary(selectedEmp).insurance * payrollSettings.bhyt_rate).toLocaleString("vi-VN")} đ</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-slate-400">Khấu trừ BHTN cá nhân (1%)</span>
-                                  <span className="text-rose-600 font-bold">-{Math.floor(getEmployeeSalary(selectedEmp).insurance * 0.01).toLocaleString("vi-VN")} đ</span>
+                                  <span className="text-slate-400">Khấu trừ BHTN cá nhân ({pctLabel(payrollSettings.bhtn_rate)})</span>
+                                  <span className="text-rose-600 font-bold">-{Math.floor(getEmployeeSalary(selectedEmp).insurance * payrollSettings.bhtn_rate).toLocaleString("vi-VN")} đ</span>
                                 </div>
                                 <div className="border-t border-slate-100 pt-3 flex items-center justify-between font-bold text-slate-800">
-                                  <span>Doanh nghiệp đóng thêm (21.5%)</span>
-                                  <span className="text-emerald-600">+{Math.floor(getEmployeeSalary(selectedEmp).insurance * 0.215).toLocaleString("vi-VN")} đ</span>
+                                  <span>Doanh nghiệp đóng thêm ({pctLabel(payrollSettings.company_insurance_rate)})</span>
+                                  <span className="text-emerald-600">+{Math.floor(getEmployeeSalary(selectedEmp).insurance * payrollSettings.company_insurance_rate).toLocaleString("vi-VN")} đ</span>
                                 </div>
                               </div>
                             </div>
@@ -7604,107 +7614,52 @@ export default function CBPage() {
           {activeTab === "payroll_insurance" && (
             <div className="space-y-6">
               {activeSubTab === "calculation" && (
-                <div className="space-y-6">
-                  {/* Monthly Payroll Grid */}
-                  <div className="glass bg-white rounded-2xl p-6 border border-slate-200/50 shadow-premium space-y-4">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                      <div>
-                        <h3 className="font-heading font-extrabold text-slate-800 text-sm">BẢNG TÍNH TOÁN TIỀN LƯƠNG THÁNG NÀY</h3>
-                        <p className="text-slate-400 text-[10px] font-semibold mt-0.5">Dữ liệu tính toán dựa trên ngày công chấm công và thang bảng lương quy định</p>
-                      </div>
-                      <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">Tháng 06/2026</span>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">
-                            <th className="py-3 px-3">Họ và Tên</th>
-                            <th className="py-3 px-3 text-center">Ngày công quy định</th>
-                            <th className="py-3 px-3 text-center">Ngày công thực tế</th>
-                            <th className="py-3 px-3">Lương cơ bản</th>
-                            <th className="py-3 px-3">Phụ cấp</th>
-                            <th className="py-3 px-3">Khấu trừ BHXH (10.5%)</th>
-                            <th className="py-3 px-3">Thuế TNCN trích đóng</th>
-                            <th className="py-3 px-3 text-right">Lương thực lĩnh (Net)</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                          {filteredSalaryInfo.map(s => {
-                            const deductions = s.insurance * 0.105;
-                            const tax = s.base * 0.05; // mock tax
-                            const netPay = s.total - deductions - tax;
-                            return (
-                              <tr key={s.id} className="hover:bg-slate-50/50">
-                                <td className="py-3.5 px-3 text-slate-850 font-bold">{s.name}</td>
-                                <td className="py-3.5 px-3 text-center">24 ngày</td>
-                                <td className="py-3.5 px-3 text-center text-blue-600 font-bold">24 ngày</td>
-                                <td className="py-3.5 px-3">{s.base.toLocaleString("vi-VN")} đ</td>
-                                <td className="py-3.5 px-3">{(s.phone + s.lunch + s.gas).toLocaleString("vi-VN")} đ</td>
-                                <td className="py-3.5 px-3 text-rose-600">-{deductions.toLocaleString("vi-VN")} đ</td>
-                                <td className="py-3.5 px-3 text-amber-600">-{tax.toLocaleString("vi-VN")} đ</td>
-                                <td className="py-3.5 px-3 text-right text-emerald-600 font-black">{netPay.toLocaleString("vi-VN")} đ</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                <PayrollCalcTab
+                  month={payrollMonth} rows={payrollRows} contracts={contracts} policies={allowancePolicies} employees={employees} departments={deptLists.all} settings={payrollSettings}
+                  smtpConfig={smtpConfig} onNeedSmtp={() => setShowEmailConfigModal(true)} notify={notify} askConfirm={askConfirm}
+                />
+              )}
 
-                  {/* Salary trends chart */}
-                  <div className="glass bg-white rounded-2xl p-6 border border-slate-200/50 shadow-premium">
-                    <h3 className="font-heading font-bold text-slate-800 text-sm mb-5">Biến động Quỹ lương & Trích đóng BHXH (6 tháng qua)</h3>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={HISTORICAL_SALARY_TREND}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.03)" />
-                          <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#64748B" }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 10, fill: "#64748B" }} axisLine={false} tickLine={false} />
-                          <Tooltip />
-                          <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Line type="monotone" dataKey="Tổng lương (Tỷ)" stroke="#005BAC" strokeWidth={2} activeDot={{ r: 6 }} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </div>
+              {activeSubTab === "kpi_salary" && (
+                <PayrollKpiTab month={payrollMonth} rows={payrollRows} contracts={contracts} departments={deptLists.all} notify={notify} />
+              )}
+
+              {activeSubTab === "payroll_settings" && (
+                <PayrollSettingsTab key={JSON.stringify(payrollSettings)} settings={payrollSettings} onSaved={setPayrollSettings} notify={notify} />
               )}
 
               {activeSubTab === "insurance" && (
                 <div className="glass bg-white rounded-2xl p-6 border border-slate-200/50 shadow-premium space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <h3 className="font-heading font-extrabold text-slate-800 text-sm">HỒ SƠ BẢO HIỂM XÃ HỘI & TRÍCH ĐÓNG BHXH</h3>
-                    <span className="text-[10px] text-slate-400 font-bold">Theo dõi mã số bảo hiểm, mức lương đóng quy định và trích nộp định kỳ</span>
+                    <span className="text-[10px] text-slate-400 font-bold">Mức lương đóng theo Hợp đồng nhân sự ({insuranceRows.length} người)</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">
                           <th className="py-3 px-3">Nhân viên</th>
-                          <th className="py-3 px-3">Mã số BHXH</th>
                           <th className="py-3 px-3">Mức lương đóng BHXH</th>
-                          <th className="py-3 px-3">BHXH Cá nhân (8%)</th>
-                          <th className="py-3 px-3">BHYT Cá nhân (1.5%)</th>
-                          <th className="py-3 px-3">BHTN Cá nhân (1%)</th>
-                          <th className="py-3 px-3">Doanh nghiệp đóng thêm (21.5%)</th>
-                          <th className="py-3 px-3 w-32 text-center">Trạng thái Sổ</th>
+                          <th className="py-3 px-3">BHXH Cá nhân ({pctLabel(payrollSettings.bhxh_rate)})</th>
+                          <th className="py-3 px-3">BHYT Cá nhân ({pctLabel(payrollSettings.bhyt_rate)})</th>
+                          <th className="py-3 px-3">BHTN Cá nhân ({pctLabel(payrollSettings.bhtn_rate)})</th>
+                          <th className="py-3 px-3">Doanh nghiệp đóng thêm ({pctLabel(payrollSettings.company_insurance_rate)})</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                        {filteredBhxhLogs.map((b, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/50">
-                            <td className="py-3.5 px-3 text-slate-800 font-bold">{b.name}</td>
-                            <td className="py-3.5 px-3 font-mono font-bold text-slate-500">{b.code}</td>
-                            <td className="py-3.5 px-3">{b.base.toLocaleString("vi-VN")} đ</td>
-                            <td className="py-3.5 px-3 text-rose-600">-{b.SI.toLocaleString("vi-VN")} đ</td>
-                            <td className="py-3.5 px-3 text-rose-600">-{b.HI.toLocaleString("vi-VN")} đ</td>
-                            <td className="py-3.5 px-3 text-rose-600">-{b.UI.toLocaleString("vi-VN")} đ</td>
-                            <td className="py-3.5 px-3 text-emerald-600">+{b.company_total.toLocaleString("vi-VN")} đ</td>
-                            <td className="py-3.5 px-3 text-center">
-                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-100 text-blue-800">{b.booklet}</span>
-                            </td>
-                          </tr>
-                        ))}
+                        {insuranceRows.map(c => {
+                          const base = c.base_salary_insurance || 0;
+                          return (
+                            <tr key={c.id} className="hover:bg-slate-50/50">
+                              <td className="py-3.5 px-3 text-slate-800 font-bold">{c.employee_name || c.employees?.name}</td>
+                              <td className="py-3.5 px-3">{base.toLocaleString("vi-VN")} đ</td>
+                              <td className="py-3.5 px-3 text-rose-600">-{Math.round(base * payrollSettings.bhxh_rate).toLocaleString("vi-VN")} đ</td>
+                              <td className="py-3.5 px-3 text-rose-600">-{Math.round(base * payrollSettings.bhyt_rate).toLocaleString("vi-VN")} đ</td>
+                              <td className="py-3.5 px-3 text-rose-600">-{Math.round(base * payrollSettings.bhtn_rate).toLocaleString("vi-VN")} đ</td>
+                              <td className="py-3.5 px-3 text-emerald-600">+{Math.round(base * payrollSettings.company_insurance_rate).toLocaleString("vi-VN")} đ</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
