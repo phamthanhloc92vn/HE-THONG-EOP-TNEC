@@ -1,5 +1,6 @@
 // ─── TÍNH LƯƠNG CỨNG THÁNG (user chốt 13/11/2026, khớp phiếu lương mẫu T9/2026) ───
-// Lương cơ bản tháng = Lương CB (HĐ) / công chuẩn × (ngày công + ngày lễ)  — lễ được cộng thêm
+// Lương cơ bản tháng = Lương CB (HĐ) / công chuẩn × ngày công (ngày lễ L đã nằm trong ngày công,
+//   KHÔNG cộng thêm — user chốt 14/11/2026: phiếu T9 cộng thêm 1 ngày là C&B tính nhầm; đúng như phiếu T7)
 // Thưởng HQCV tháng  = Thưởng HQCV (HĐ) / công chuẩn × ngày công, tối đa công chuẩn (không vượt mức HĐ)
 // Phụ cấp: cơm = đơn giá × ngày có mặt văn phòng (trừ công tác, phép, lễ);
 //          xăng/điện thoại = đủ ngưỡng công thì mức đủ, thiếu thì mức giảm.
@@ -18,6 +19,12 @@ export type PayrollSettings = {
   bhtn_rate: number;
   company_insurance_rate: number;
   tax_brackets: TaxBracket[];
+  // Phụ cấp (migration 168): cơm theo ngày đi làm, xăng/ĐT cố định theo 3 cấp
+  lunch_per_day: number;
+  fuel_senior: number; phone_senior: number;
+  fuel_mid: number; phone_mid: number;
+  fuel_junior: number; phone_junior: number;
+  fuel_staff: number; phone_staff: number;
 };
 export const PAYROLL_SETTINGS_DEFAULT: PayrollSettings = {
   standard_workdays: 26,
@@ -34,7 +41,31 @@ export const PAYROLL_SETTINGS_DEFAULT: PayrollSettings = {
     { upto: 100_000_000, rate: 0.3 },
     { upto: null, rate: 0.35 },
   ],
+  lunch_per_day: 35_000,
+  fuel_senior: 100_000, phone_senior: 100_000,
+  fuel_mid: 100_000, phone_mid: 100_000,
+  fuel_junior: 100_000, phone_junior: 100_000,
+  fuel_staff: 100_000, phone_staff: 100_000,
 };
+
+// 4 cấp phụ cấp xăng/ĐT (user chốt 14/11/2026), gom từ 5 cấp của getEmployeeLevel (app/cb/page.tsx, dùng chung Phúc lợi)
+export type AllowanceTier = "senior" | "mid" | "junior" | "staff";
+export const ALLOWANCE_TIER_LABEL: Record<AllowanceTier, string> = {
+  senior: "Cấp cao (BLĐ, GĐ, PGĐ)",
+  mid: "Quản lý cấp trung (TP, PP)",
+  junior: "Quản lý sơ cấp (Tổ trưởng)",
+  staff: "Nhân viên",
+};
+export function allowanceTier(levelLabel: string): AllowanceTier {
+  if (levelLabel === "Điều hành cao cấp" || levelLabel === "Quản lý cấp cao") return "senior";
+  if (levelLabel === "Quản lý cấp trung") return "mid";
+  if (levelLabel === "Quản lý sơ cấp") return "junior";
+  return "staff";
+}
+// officeDays = ngày đi làm thực tế (có mặt VP, gồm OL; không tính phép/lễ/công tác)
+export function computeAllowances(st: PayrollSettings, tier: AllowanceTier, officeDays: number) {
+  return { lunch: Math.round(st.lunch_per_day * officeDays), fuel: st[`fuel_${tier}`], phone: st[`phone_${tier}`] };
+}
 
 export function progressiveTax(taxable: number, brackets: TaxBracket[]): number {
   let tax = 0, lower = 0;
@@ -51,7 +82,7 @@ export type PayslipInput = {
   baseSalary: number;        // Lương cơ bản theo HĐ (= lương đóng BH)
   performanceBonus: number;  // Thưởng HQCV theo HĐ
   workdays: number;          // Tổng ngày công (văn phòng + công tác + phép có lương)
-  holidays: number;          // Số ngày lễ (L = 1, L/2 = 0,5)
+  holidays: number;          // Số ngày lễ (L = 1, L/2 = 0,5) — chỉ để hiển thị, đã gồm trong workdays
   lunch: number;             // Phụ cấp cơm (miễn thuế)
   fuel: number;
   phone: number;
@@ -65,7 +96,7 @@ export type PayslipInput = {
 
 export function computePayslip(i: PayslipInput, st: PayrollSettings = PAYROLL_SETTINGS_DEFAULT) {
   const std = st.standard_workdays;
-  const basePay = Math.round((i.baseSalary / std) * (i.workdays + i.holidays));
+  const basePay = Math.round((i.baseSalary / std) * i.workdays);
   const bonusPay = i.kpiBonus !== undefined
     ? i.kpiBonus
     : Math.round((i.performanceBonus / std) * Math.min(i.workdays, std));

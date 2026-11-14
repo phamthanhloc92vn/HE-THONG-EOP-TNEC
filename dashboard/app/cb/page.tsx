@@ -22,7 +22,7 @@ import { useNoticeBox } from "@/components/ConfirmDialog";
 import GpsCheckinList from "./GpsCheckinList";
 import PayrollCalcTab from "@/components/cb/PayrollCalcTab";
 import PayrollKpiTab from "@/components/cb/PayrollKpiTab";
-import { computePayslip } from "@/lib/payroll";
+import { allowanceTier, computeAllowances, computePayslip } from "@/lib/payroll";
 import PayrollSettingsTab from "@/components/cb/PayrollSettingsTab";
 import { usePayrollSettings } from "@/components/cb/usePayrollSettings";
 import {
@@ -4832,11 +4832,8 @@ export default function CBPage() {
     const c = insuranceRows.find(r =>
       (code && (r.employee_code || "").trim() === code) || normalizeText(r.employee_name || "") === normalizeText(emp.name));
     const base = c?.base_salary_insurance || 0;
-    const policy = (k: string) => allowancePolicies.find(p => p.code === k);
     const std = payrollSettings.standard_workdays;
-    const lunch = (policy("lunch")?.per_day_amount || 0) * std;
-    const gas = policy("fuel")?.full_amount || 0;
-    const phone = policy("phone")?.full_amount || 0;
+    const { lunch, fuel: gas, phone } = computeAllowances(payrollSettings, allowanceTier(getEmployeeLevel(emp.role)), std);
     const total = base ? computePayslip({
       baseSalary: base, performanceBonus: c?.performance_bonus || 0, workdays: std, holidays: 0,
       lunch, fuel: gas, phone, dependents: c?.dependents || 0, otTaxFree: 0, otTaxable: 0, backPay: 0, clawback: 0,
@@ -4910,7 +4907,8 @@ export default function CBPage() {
                 { id: "leave", label: "Nghỉ phép" },
                 { id: "travel", label: "Công tác" },
                 { id: "regime", label: "Nghỉ chế độ" },
-                { id: "allowances", label: "Phụ cấp cơm, xăng, dt..." }
+                // Tab "Phụ cấp cơm, xăng, dt..." đã ẩn (14/11/2026): định mức phụ cấp chuyển sang
+                // Bảng lương & BHXH > Cài đặt chung (migration 168/169), theo 4 cấp chức vụ.
               ].map(sub => (
                 <button
                   key={sub.id}
@@ -7615,7 +7613,7 @@ export default function CBPage() {
             <div className="space-y-6">
               {activeSubTab === "calculation" && (
                 <PayrollCalcTab
-                  month={payrollMonth} rows={payrollRows} contracts={contracts} policies={allowancePolicies} employees={employees} departments={deptLists.all} settings={payrollSettings}
+                  month={payrollMonth} rows={payrollRows} contracts={contracts} levelOf={getEmployeeLevel} employees={employees} departments={deptLists.all} settings={payrollSettings}
                   smtpConfig={smtpConfig} onNeedSmtp={() => setShowEmailConfigModal(true)} notify={notify} askConfirm={askConfirm}
                 />
               )}

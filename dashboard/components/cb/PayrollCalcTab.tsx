@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import ExcelJS from "exceljs";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/apiClient";
-import { computeKpiBonus, computePayslip, KpiLevel, Payslip, PayslipInput, PayrollSettings } from "@/lib/payroll";
+import { allowanceTier, computeAllowances, computeKpiBonus, computePayslip, KpiLevel, Payslip, PayslipInput, PayrollSettings } from "@/lib/payroll";
 import { usePayrollKpi } from "./usePayrollKpi";
 import { payslipRows, payslipPdfDoc, payslipPassword, PayslipView } from "@/lib/payslip";
 
@@ -16,10 +16,9 @@ export type ContractLite = {
   base_salary_insurance?: number | null; performance_bonus?: number | null; dependents?: number | null;
   employees?: { name: string; role?: string };
 };
-type Policy = { code: string; kind: "per_day" | "threshold"; per_day_amount: number | null; threshold_days: number | null; full_amount: number | null; reduced_amount: number | null };
 type Manual = Pick<PayslipInput, "otTaxFree" | "otTaxable" | "backPay" | "clawback" | "dependents">;
 type Line = { code: string; name: string; department: string; role: string; contract?: ContractLite; input?: PayslipInput; slip?: Payslip; email: string; cccd: string; kpi?: { level: KpiLevel | null } };
-type EmployeeLite = { employee_code?: string; name: string; email?: string; cccd?: string };
+type EmployeeLite = { employee_code?: string; name: string; email?: string; cccd?: string; role?: string };
 type SendState = { status: "sending" | "success" | "error"; message?: string };
 
 const MANUAL_FIELDS: { key: keyof Manual; label: string }[] = [
@@ -57,13 +56,6 @@ export const pickContract = (contracts: ContractLite[], code: string, name: stri
 
 const holidayDays = (days: string[]) => days.reduce((s, t) => s + (t === "L" ? 1 : t === "L/2" ? 0.5 : 0), 0);
 
-const allowance = (policies: Policy[], code: string, r: TimesheetRow) => {
-  const p = policies.find(x => x.code === code);
-  if (!p) return 0;
-  // Cơm: ngày làm việc VP (gồm cả OL làm online thứ 7), không tính công tác/phép/lễ
-  if (p.kind === "per_day") return Math.round((p.per_day_amount || 0) * r.vanPhong);
-  return r.tongNgayCong >= (p.threshold_days || 0) ? p.full_amount || 0 : p.reduced_amount || 0;
-};
 
 // Xem nhanh phiếu lương (cùng nội dung với file Excel/PDF — lib/payslip.ts)
 const PREVIEW_ROW: Record<string, string> = {
@@ -116,8 +108,9 @@ function PayslipPreview({ view, onClose, onPdf }: { view: PayslipView; onClose: 
   );
 }
 
-export default function PayrollCalcTab({ month, rows, contracts, policies, employees, departments, settings, smtpConfig, onNeedSmtp, notify, askConfirm }: {
-  month: string; rows: TimesheetRow[]; contracts: ContractLite[]; policies: Policy[]; employees: EmployeeLite[]; departments: string[]; settings: PayrollSettings;
+export default function PayrollCalcTab({ month, rows, contracts, levelOf, employees, departments, settings, smtpConfig, onNeedSmtp, notify, askConfirm }: {
+  month: string; rows: TimesheetRow[]; contracts: ContractLite[]; employees: EmployeeLite[]; departments: string[]; settings: PayrollSettings;
+  levelOf: (role: string) => string; // getEmployeeLevel của trang C&B (5 cấp, dùng chung Phúc lợi)
   smtpConfig: { user: string; pass: string }; onNeedSmtp: () => void;
   notify: (msg: string, type?: "success" | "error") => void;
   askConfirm: (msg: string) => Promise<boolean>;
@@ -149,13 +142,14 @@ export default function PayrollCalcTab({ month, rows, contracts, policies, emplo
   const lines: Line[] = useMemo(() => rows.map(r => {
     const contract = pickContract(contracts, r.employeeCode, r.name);
     const emp = employees.find(e => (r.employeeCode && norm(e.employee_code) === norm(r.employeeCode))) || employees.find(e => norm(e.name) === norm(r.name));
-    const base = { code: r.employeeCode, name: r.name, department: r.department || "Chưa xếp phòng", role: contract?.employees?.role || "", contract, email: emp?.email || "", cccd: emp?.cccd || "" };
+    const base = { code: r.employeeCode, name: r.name, department: r.department || "Chưa xếp phòng", role: emp?.role || contract?.employees?.role || "", contract, email: emp?.email || "", cccd: emp?.cccd || "" };
     if (!contract?.base_salary_insurance) return base;
     const m = manual[r.employeeCode] || {};
     const input: PayslipInput = {
       baseSalary: contract.base_salary_insurance, performanceBonus: contract.performance_bonus || 0,
       workdays: r.tongNgayCong, holidays: holidayDays(r.days),
-      lunch: allowance(policies, "lunch", r), fuel: allowance(policies, "fuel", r), phone: allowance(policies, "phone", r),
+      // Cơm theo ngày đi làm thực tế (cột VP, gồm OL); xăng/ĐT cố định theo cấp của chức vụ hiện tại
+      ...computeAllowances(settings, allowanceTier(levelOf(base.role)), r.vanPhong),
       dependents: m.dependents ?? contract.dependents ?? 0,
       otTaxFree: m.otTaxFree || 0, otTaxable: m.otTaxable || 0, backPay: m.backPay || 0, clawback: m.clawback || 0,
     };
@@ -168,7 +162,7 @@ export default function PayrollCalcTab({ month, rows, contracts, policies, emplo
       kpi = { level: k?.level ?? null };
     }
     return { ...base, input, slip: computePayslip(input, settings), kpi };
-  }), [rows, contracts, policies, manual, employees, kpiConfig, kpiEntries, settings]);
+  }), [rows, contracts, levelOf, manual, employees, kpiConfig, kpiEntries, settings]);
 
   const deptOptions = useMemo(() => mergeDepartments(departments, lines.map(l => l.department)), [departments, lines]);
   const visible = lines.filter(l => (!dept || l.department === dept) && (!search.trim() || plain(l.name).includes(plain(search.trim()))));

@@ -4,7 +4,7 @@
 // lương, hồ sơ đều áp theo. Tháng đã chốt giữ số cũ cho tới khi bấm "Chốt lại".
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { PAYROLL_SETTINGS_DEFAULT, PayrollSettings, TaxBracket } from "@/lib/payroll";
+import { ALLOWANCE_TIER_LABEL, AllowanceTier, PAYROLL_SETTINGS_DEFAULT, PayrollSettings, TaxBracket } from "@/lib/payroll";
 import { vnd } from "./PayrollCalcTab";
 
 const toNum = (v: string) => Number(v.replace(/\D/g, "")) || 0;
@@ -125,6 +125,38 @@ export default function PayrollSettingsTab({ settings, onSaved, notify }: {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className={card}>
+        <h4 className="font-heading font-extrabold text-[#005BAC] text-sm">Phụ cấp</h4>
+        <label className={row + " max-w-md"}>
+          Tiền ăn (đ/ngày đi làm thực tế)
+          <input value={vnd(draft.lunch_per_day)} onChange={e => set("lunch_per_day", toNum(e.target.value))} className={input} />
+        </label>
+        <p className="text-[10px] text-slate-400">Tiền ăn = đơn giá × số ngày có mặt văn phòng trong tháng (gồm làm online thứ 7; không tính phép, lễ, công tác).</p>
+        <table className="w-full max-w-2xl border-collapse">
+          <thead>
+            <tr className="bg-emerald-600 text-white text-[10px] uppercase font-extrabold">
+              <th className="py-2 px-2 text-left">Cấp (tự xếp theo Chức vụ trong hồ sơ)</th>
+              <th className="py-2 px-2 text-right">Xăng xe (đ/tháng)</th>
+              <th className="py-2 px-2 text-right">Điện thoại (đ/tháng)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 font-semibold">
+            {(Object.keys(ALLOWANCE_TIER_LABEL) as AllowanceTier[]).map(t => (
+              <tr key={t}>
+                <td className="py-1.5 px-2 text-slate-700">{ALLOWANCE_TIER_LABEL[t]}</td>
+                <td className="py-1.5 px-2 text-right">
+                  <input value={vnd(draft[`fuel_${t}`])} onChange={e => set(`fuel_${t}`, toNum(e.target.value))} className={input} />
+                </td>
+                <td className="py-1.5 px-2 text-right">
+                  <input value={vnd(draft[`phone_${t}`])} onChange={e => set(`phone_${t}`, toNum(e.target.value))} className={input} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="text-[10px] text-slate-400">Xăng, điện thoại trả cố định theo cấp mỗi tháng, không xét ngày công. Cấp cao: Ban lãnh đạo, Giám đốc, Phó giám đốc · Quản lý cấp trung: Trưởng/Phó phòng (TP/PP) · Quản lý sơ cấp: Tổ trưởng · Nhân viên: còn lại.</p>
       </div>
     </div>
   );

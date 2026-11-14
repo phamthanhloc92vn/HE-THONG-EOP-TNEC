@@ -22,6 +22,11 @@ export function usePayrollSettings(enabled: boolean) {
         bhtn_rate: num("bhtn_rate") as number,
         company_insurance_rate: num("company_insurance_rate") as number,
         tax_brackets: Array.isArray(data.tax_brackets) && data.tax_brackets.length ? data.tax_brackets : PAYROLL_SETTINGS_DEFAULT.tax_brackets,
+        lunch_per_day: num("lunch_per_day") as number,
+        fuel_senior: num("fuel_senior") as number, phone_senior: num("phone_senior") as number,
+        fuel_mid: num("fuel_mid") as number, phone_mid: num("phone_mid") as number,
+        fuel_junior: num("fuel_junior") as number, phone_junior: num("phone_junior") as number,
+        fuel_staff: num("fuel_staff") as number, phone_staff: num("phone_staff") as number,
       });
     });
   }, [enabled]);
