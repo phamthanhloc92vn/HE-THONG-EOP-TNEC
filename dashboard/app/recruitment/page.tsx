@@ -1167,6 +1167,7 @@ export default function RecruitmentPage() {
   // Popup xác nhận xoá hồ sơ ứng viên — thay window.confirm, hiện giữa màn hình.
   const [deleteCandId, setDeleteCandId] = useState<string | null>(null);
   const [deletingCand, setDeletingCand] = useState(false);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[] | null>(null);
 
   // Fetch candidates from Supabase
   const fetchCandidates = async () => {
@@ -1631,6 +1632,41 @@ export default function RecruitmentPage() {
       console.error("Error deleting candidate:", err);
     } finally {
       setDeletingCand(false);
+    }
+  };
+
+  // Xoá tất cả — chỉ Admin. Xoá đúng các dòng đang hiện ở tab con đang chọn (theo bộ lọc hiện hành).
+  const handleBulkDelete = () => {
+    if (!currentUser?.isAdmin) {
+      alert("Chỉ Admin mới có quyền thực hiện thao tác này.");
+      return;
+    }
+    const ids = getFilteredTableCandidates(tableSubTab).map(c => c.id);
+    if (ids.length === 0) {
+      alert("Không có ứng viên nào để xoá.");
+      return;
+    }
+    setBulkDeleteIds(ids);
+  };
+
+  const confirmBulkDelete = async () => {
+    if (!bulkDeleteIds || !currentUser?.isAdmin) return;
+    try {
+      setDeletingCand(true);
+      for (let i = 0; i < bulkDeleteIds.length; i += 100) {
+        const { error } = await supabase
+          .from("candidates")
+          .delete()
+          .in("id", bulkDeleteIds.slice(i, i + 100));
+        if (error) throw error;
+      }
+      setBulkDeleteIds(null);
+    } catch (err) {
+      console.error("Error bulk deleting candidates:", err);
+      alert("Lỗi khi xoá: " + (err && typeof err === "object" && "message" in err ? String((err as any).message) : String(err)));
+    } finally {
+      setDeletingCand(false);
+      fetchCandidates();
     }
   };
 
@@ -2755,6 +2791,15 @@ export default function RecruitmentPage() {
                       </button>
                     </div>
                   )}
+                  {currentUser?.isAdmin && (
+                    <button
+                      onClick={handleBulkDelete}
+                      className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all active:scale-95 shadow"
+                      title="Xoá tất cả ứng viên đang hiện ở tab này (theo bộ lọc)"
+                    >
+                      <Trash2 size={14} /> Xóa tất cả
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -3592,6 +3637,51 @@ export default function RecruitmentPage() {
               >
                 {deletingCand ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                 {deletingCand ? "Đang xoá..." : "Xoá hồ sơ"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Popup xác nhận Xoá tất cả (Admin) */}
+      {bulkDeleteIds && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          onClick={() => !deletingCand && setBulkDeleteIds(null)}
+        >
+          <div
+            className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-rose-600 text-white px-6 py-4 flex items-center gap-2">
+              <Trash2 size={16} />
+              <h3 className="font-heading font-black text-sm">Xoá tất cả ứng viên</h3>
+            </div>
+            <div className="p-6 text-xs text-slate-600 font-semibold leading-relaxed">
+              Bạn sắp xoá <span className="text-rose-600">{bulkDeleteIds.length} ứng viên</span>{" "}
+              {filterDateFrom || filterDateTo || filterResult || filterDept || search
+                ? "theo bộ lọc hiện tại"
+                : "(không có bộ lọc — toàn bộ danh sách)"}{" "}
+              ở tab “{{ tong_hop: "Tổng Hợp", vong_1: "Vòng 1", vong_2: "Vòng 2", thu_viec: "Thử Việc" }[tableSubTab]}”.{" "}
+              <span className="text-rose-600">Dữ liệu sẽ bị xoá khỏi hệ thống và không thể khôi phục.</span>
+            </div>
+            <div className="px-6 pb-5 pt-1 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setBulkDeleteIds(null)}
+                disabled={deletingCand}
+                className="px-4 py-2 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 text-xs disabled:opacity-50"
+              >
+                Huỷ
+              </button>
+              <button
+                type="button"
+                onClick={confirmBulkDelete}
+                disabled={deletingCand}
+                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300 text-white font-bold rounded-xl shadow-md text-xs"
+              >
+                {deletingCand ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                {deletingCand ? "Đang xoá..." : `Xoá ${bulkDeleteIds.length} hồ sơ`}
               </button>
             </div>
           </div>
