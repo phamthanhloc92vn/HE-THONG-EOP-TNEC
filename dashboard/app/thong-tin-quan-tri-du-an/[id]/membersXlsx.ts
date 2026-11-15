@@ -15,7 +15,7 @@ const WIDTHS = [6, 11, 16, 15, 17, 22, 22, 36, 46, 18, 13, 32, 15, 16];
 
 export async function buildMembersWorkbook(Workbook: new () => WorkbookT, rows: MembersPdfRow[], meta: MembersPdfMeta) {
   const wb = new Workbook();
-  wb.creator = "HCNS TNEC";
+  wb.creator = "HCNS Lodeza EOP";
   const ws = wb.addWorksheet("Thành viên", {
     pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } },
     views: [{ state: "frozen", ySplit: 4, xSplit: 0 }],

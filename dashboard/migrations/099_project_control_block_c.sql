@@ -160,7 +160,7 @@ create table if not exists public.pc_payments (
   acceptance_id   uuid references public.pc_acceptances(id) on delete set null,
   payment_type    text not null default 'PROGRESS'
                   check (payment_type in ('ADVANCE','PROGRESS','ADVANCE_RECOVERY','RETENTION','FINAL')),
-  direction       text not null check (direction in ('IN','OUT')),  -- IN: CĐT trả TNEC · OUT: TNEC trả nhà thầu
+  direction       text not null check (direction in ('IN','OUT')),  -- IN: CĐT trả Lodeza EOP · OUT: Lodeza EOP trả nhà thầu
   request_date    date,
   request_value   bigint,
   paid_date       date,

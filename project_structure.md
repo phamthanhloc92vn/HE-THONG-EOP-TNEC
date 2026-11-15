@@ -1,4 +1,4 @@
-# 🏗️ PM-HCNS-TNEC: Project Architecture & System Structure
+# 🏗️ Lodeza EOP: Project Architecture & System Structure
 
 Tài liệu này bản đồ hóa toàn bộ cấu trúc dự án, luồng đi của dữ liệu và kiến trúc hệ thống để lập trình viên (hoặc AI Agent) có thể nắm bắt 100% cách hoạt động của hệ thống ngay lập tức.
 
@@ -6,7 +6,7 @@ Tài liệu này bản đồ hóa toàn bộ cấu trúc dự án, luồng đi c
 
 ## 🗺️ Bản Đồ Hệ Thống (System Overview)
 
-Hệ thống **PM-HCNS-TNEC** (Hành chính Nhân sự & Quản trị Dự án) gồm 3 khối thành phần chính liên kết chặt chẽ với nhau:
+Hệ thống **Lodeza EOP** (Hành chính Nhân sự & Quản trị Dự án) gồm 3 khối thành phần chính liên kết chặt chẽ với nhau:
 
 *   **Desktop App (AI CV Scorer)**: Ứng dụng chạy local trên CustomTkinter (Python) dành cho bộ phận HR để lọc CV tự động từ thư mục cục bộ hoặc quét Gmail tự động, phân tích qua OpenAI API và lưu thông tin sang Google Sheets.
 *   **Google Workspace Integration**: Sử dụng Google Apps Script Webhook để nhận dữ liệu từ Desktop App, cập nhật vào tab `Tổng Hợp` và tự động chuyển các dòng có trạng thái `PASS CV` sang tab `Vòng 1`.
@@ -87,7 +87,7 @@ Trang web quản trị tập trung dành cho các cấp quản lý và nhân s�
     *   `/phong-ban`: Phân rã cấu trúc tổ chức và nhân sự theo từng bộ phận.
     *   `/tasks`: Quản lý dự án / công việc nội bộ.
     *   `/van-thu`: Giao diện số hóa lưu trữ công văn đến, đi và duyệt tờ trình trực tuyến.
-    *   `/document-control`: Thư viện quy trình, chính sách, quy định nội bộ của Trung Nam E&C.
+    *   `/document-control`: Thư viện quy trình, chính sách, quy định nội bộ của Lodeza EOP.
     *   `/meeting-team`: Module Biên bản họp AI (ghi âm → transcript → tóm tắt → xuất Word).
     *   `/dang-ky`: **Quản lý Đăng ký** — 2 mục con trên sidebar: *Đăng ký xe* (`?tab=xe`, Fortuner/Xpander 7 chỗ) và *Đăng ký phòng họp* (`?tab=phong-hop`, Phòng họp lớn/nhỏ). Form gồm: người chủ trì, xe/phòng, thời gian bắt đầu–kết thúc, nội dung, phòng ban, chọn nhân viên tham dự từ danh bạ (search + dropdown, tự tính số lượng, cho sửa tay), nội bộ/khách hàng (kèm thông tin khách tự điền), ghi chú hậu cần (nước, trà, bánh kẹo...). Có cảnh báo trùng lịch xe/phòng trước khi gửi duyệt.
 

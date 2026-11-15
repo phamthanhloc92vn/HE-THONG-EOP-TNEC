@@ -1,4 +1,4 @@
-# PM-HCNS-TNEC Workspace Rules
+# Lodeza EOP Workspace Rules
 
 ## 🏗️ Project Architecture & Context Loading
 - Before performing any code modifications or research tasks, you MUST read the [project_structure.md](file:///d:/Antigravity/PM%20-%20HCNS%20-%20TNEC/project_structure.md) file in the root directory.

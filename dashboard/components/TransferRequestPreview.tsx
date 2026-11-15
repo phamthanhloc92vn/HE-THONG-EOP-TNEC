@@ -155,7 +155,7 @@ export default function TransferRequestPreview({ data, onClose }: {
                 <span className="text-sky-400 text-xs font-normal italic">E&amp;C</span>
               </div>
               <div className="text-[7.5px] font-bold text-slate-800 mt-0.5">
-                CÔNG TY CP XÂY DỰNG VÀ LẮP MÁY TRUNG NAM
+                Lodeza EOP
               </div>
               <div className="text-[6.5px] text-slate-500 mt-1 leading-tight">
                 A: Tầng trệt tòa nhà Safomec, 7/1 Thành Thái, Phường 14, Quận 10, TPHCM<br />
@@ -169,7 +169,7 @@ export default function TransferRequestPreview({ data, onClose }: {
           </div>
 
           <div className="mb-4 text-xs font-bold leading-normal">
-            Kính gửi: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - Ban lãnh đạo Công ty CP XD và LM Trung Nam;<br />
+            Kính gửi: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - Ban lãnh đạo Lodeza EOP;<br />
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - Phòng Kế toán công ty,
           </div>
 

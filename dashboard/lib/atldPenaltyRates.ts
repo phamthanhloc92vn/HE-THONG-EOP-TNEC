@@ -33,7 +33,7 @@ export type PenaltyRate = {
 export const EXTRA_MEASURE_OPTIONS = [
   "Tạm dừng thi công cho đến khi có nhân sự phụ trách tại công trường",
   "Buộc thôi việc và chuyển Công an xử lý",
-  "Buộc thôi việc và chuyển Công an xử lý. Đồng thời, nhà thầu sẽ bị đình chỉ thi công toàn hệ thống Trungnam E&C.",
+  "Buộc thôi việc và chuyển Công an xử lý. Đồng thời, nhà thầu sẽ bị đình chỉ thi công toàn hệ thống Lodeza EOP.",
   "Bồi thường 100% tài sản",
   "Bồi thường 100% tài sản và bàn giao Công an xử lý",
   "Trục xuất khỏi công trường và khắc phục thiệt hại môi trường + Chuyển giao Công an",

@@ -324,7 +324,7 @@ export default function DailyReportModal({
                   className="col-span-6"
                   value={u.scope}
                   disabled={u.key === "TNEC"}
-                  placeholder={u.key === "TNEC" ? "(TNEC không ghi phạm vi ở mục I)" : "Phạm vi công việc, VD: Km2+280 ÷ Km3+287.65"}
+                  placeholder={u.key === "TNEC" ? "(Lodeza EOP không ghi phạm vi ở mục I)" : "Phạm vi công việc, VD: Km2+280 ÷ Km3+287.65"}
                   onChange={(e) => patch(u.key, { scope: e.target.value })}
                 />
                 <div className="col-span-1 flex justify-center">
@@ -343,7 +343,7 @@ export default function DailyReportModal({
           </div>
 
           {h("II. Nhân lực, thiết bị / máy móc")}
-          {/* Xếp dọc (1 trên, 2 dưới) để bảng đủ rộng cho TNEC | NTP 1 | NTP 2 | … */}
+          {/* Xếp dọc (1 trên, 2 dưới) để bảng đủ rộng cho Lodeza EOP | NTP 1 | NTP 2 | … */}
           <div className="space-y-4">
             {matrix("1. Nhân sự", MANPOWER_ROLES, "manpower")}
             {matrix("2. Máy móc / thiết bị", EQUIPMENT_TYPES, "equipment")}

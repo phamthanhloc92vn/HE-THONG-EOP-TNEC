@@ -46,7 +46,7 @@ export type SigningFile = { path: string; name: string; size?: number };
 // chuyen_tien : HC-BM021/ĐNCT — đề nghị CHUYỂN TIỀN cho một dòng kế hoạch thu
 //               chi. Không gắn hợp đồng/đợt, không có bảng A−B−C−D; thứ nó cần
 //               mà hai loại kia không có là số tài khoản + ngân hàng người nhận.
-// to_trinh    : TTr/TNE&C    — xin CHỦ TRƯƠNG của Ban Giám đốc (mua sắm, nâng
+// to_trinh    : TTr/Lodeza EOP    — xin CHỦ TRƯƠNG của Ban Giám đốc (mua sắm, nâng
 //               cấp, đề xuất…). Không hợp đồng, không đợt, không tài khoản nhận;
 //               chỉ có Căn cứ → Nội dung đề nghị → Chi phí dự kiến → Kiến nghị.
 //               Luồng ĐÚNG 2 CẤP theo 3 ô ký trên tờ giấy (xem buildSigningRoute).
@@ -126,7 +126,7 @@ export const LOAI_META: Record<SigningLoai, { label: string; short: string; bieu
   to_trinh: {
     label: "Tờ trình",
     short: "Tờ trình",
-    bieuMau: "TTr/TNE&C",
+    bieuMau: "TTr/Lodeza EOP",
     chip: "bg-indigo-50 text-indigo-700",
   },
   phieu_yeu_cau: {
@@ -1399,7 +1399,7 @@ export function docxPayloadFromRow(s: SigningSubmission): Record<string, unknown
     };
   }
 
-  // TỜ TRÌNH: tờ TTr/TNE&C là một lá thư, không có bảng số liệu nào. Chỉ mấy ô
+  // TỜ TRÌNH: tờ TTr/Lodeza EOP là một lá thư, không có bảng số liệu nào. Chỉ mấy ô
   // chữ + một dòng chi phí; `ngayLap` để route ghi đúng "ngày … tháng … năm"
   // theo NGÀY LẬP PHIẾU chứ không phải ngày bấm nút xuất.
   if (s.loai === "to_trinh") {

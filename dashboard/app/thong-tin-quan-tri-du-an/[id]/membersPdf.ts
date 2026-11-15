@@ -4,7 +4,7 @@
 //
 // Bố cục: dải tiêu đề + dòng thông tin dự án, bảng A4 ngang chia 4 NHÓM CỘT, mỗi
 // nhóm một tông màu (hàng nhóm đậm, hàng tên cột nhạt cùng tông):
-//   Dự án (xám xanh) · Nhân sự (xanh TNEC) · Phân công (xanh ngọc) · Liên hệ & quyền (chàm)
+//   Dự án (xám xanh) · Nhân sự (xanh Lodeza EOP) · Phân công (xanh ngọc) · Liên hệ & quyền (chàm)
 // Trạng thái / Quyền tô màu theo giá trị; hàng xen kẽ nền rất nhạt; chỉ kẻ ngang.
 
 export type MembersPdfRow = {

@@ -250,7 +250,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
             <div className="pointer-events-none absolute bottom-4 right-4 w-11 h-11 rounded-br-[1.4rem] border-b border-r border-white/25" />
 
             <div className="relative flex flex-col items-center text-center">
-              {/* Logo công ty (đọc từ tenant_config, fallback TNEC) */}
+              {/* Logo công ty (đọc từ tenant_config, fallback Lodeza EOP) */}
               <BrandLogo
                 className="w-16 h-16 rounded-2xl ring-4 ring-[#00AEEF]/15"
                 tileClassName="bg-gradient-to-br from-[#005BAC] to-[#00AEEF] shadow-lg"

@@ -83,7 +83,7 @@ create trigger jd_templates_touch_trg
 -- cho khách khác mà chưa chạy đủ migration cũ thì policy bên dưới lỗi "function
 -- does not exist" giữa chừng, và vì SQL Editor chạy trong MỘT transaction nên
 -- toàn bộ file rollback sạch, rất khó lần ra nguyên nhân.
--- Lệnh idempotent, chạy trên TNEC là no-op.
+-- Lệnh idempotent, chạy trên Lodeza EOP là no-op.
 create or replace function public.is_admin_caller()
 returns boolean
 language sql

@@ -20,10 +20,10 @@ Mỗi hợp đồng trong danh sách cần có các trường dữ liệu sau:
 3. "employee_code": Mã nhân viên (ví dụ: "3335", "5497", "139").
 4. "employee_name": Họ và tên nhân viên (ví dụ: "Huỳnh Giáp Nhân").
 5. "onboard_date": Ngày nhận việc (định dạng YYYY-MM-DD, ví dụ: "2025-02-01").
-6. "probation_contract_number": Số hợp đồng thử việc / Số HĐTV (ví dụ: "006409/2026/HĐTV/TNE&C").
+6. "probation_contract_number": Số hợp đồng thử việc / Số HĐTV (ví dụ: "006409/2026/HĐTV/Lodeza EOP").
 7. "probation_start_date": Ngày bắt đầu thử việc / Từ ngày (định dạng YYYY-MM-DD, ví dụ: "2026-11-05").
 8. "probation_end_date": Ngày kết thúc thử việc / Đến ngày (định dạng YYYY-MM-DD, ví dụ: "2026-10-07").
-9. "contract_number": Số hợp đồng lao động / Số HĐLĐ (ví dụ: "003335/2025/HĐLĐ/TNE&C").
+9. "contract_number": Số hợp đồng lao động / Số HĐLĐ (ví dụ: "003335/2025/HĐLĐ/Lodeza EOP").
 10. "type": Loại hợp đồng lao động (ví dụ: "Không xác định thời hạn", "Xác định thời hạn").
 11. "sign_date": Ngày hiệu lực HĐLĐ / Ngày ký HĐLĐ (định dạng YYYY-MM-DD, ví dụ: "2026-04-01").
 12. "expiration_date": Ngày hết hạn HĐLĐ (định dạng YYYY-MM-DD, ví dụ: "2026-07-13").

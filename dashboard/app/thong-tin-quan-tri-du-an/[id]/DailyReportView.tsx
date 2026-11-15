@@ -228,7 +228,7 @@ export default function DailyReportView({
               )}
               {non > 0 && (
                 <td colSpan={non} className={`${td} text-center font-bold`}>
-                  THẦU PHỤ TNEC
+                  THẦU PHỤ Lodeza EOP
                 </td>
               )}
               {K - m.subs.length > 0 && (

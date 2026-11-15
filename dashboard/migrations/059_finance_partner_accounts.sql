@@ -117,7 +117,7 @@ on conflict do nothing;
 -- này trên một Supabase mới dựng cho khách khác mà chưa chạy đủ migration cũ thì
 -- policy bên dưới lỗi "function does not exist" giữa chừng, và vì SQL Editor
 -- chạy trong MỘT transaction nên toàn bộ file rollback sạch, rất khó lần ra
--- nguyên nhân. Cả hai lệnh đều idempotent, chạy trên TNEC là no-op.
+-- nguyên nhân. Cả hai lệnh đều idempotent, chạy trên Lodeza EOP là no-op.
 alter table public.approval_permissions
   add column if not exists can_view_reports boolean not null default false;
 

@@ -3,7 +3,7 @@
 --
 -- LÝ DO (user chốt 22/09/2026):
 -- Bộ phận thường xuyên trình Ban Giám đốc một ĐỀ XUẤT (mua sắm, nâng cấp, chủ
--- trương…) bằng tờ TTr/TNE&C — không phải hồ sơ thanh toán, không phải hợp đồng,
+-- trương…) bằng tờ TTr/Lodeza EOP — không phải hồ sơ thanh toán, không phải hợp đồng,
 -- cũng không phải đề nghị chuyển tiền. Trước đây phải soạn Word tay rồi cầm đi
 -- xin chữ ký; nay lập ngay trong module và đi đúng luồng duyệt như 3 loại kia.
 --

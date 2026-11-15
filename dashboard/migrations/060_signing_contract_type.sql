@@ -23,9 +23,9 @@
 -- chữ tự do chỉ để in ra giấy, không bao giờ lọc hay cộng theo — cùng lối cột
 -- `files` và `ai_thieu` đang dùng.
 --
--- BÊN A / BÊN B ĐỂ TRỐNG, KHÔNG MẶC ĐỊNH TRUNG NAM:
+-- BÊN A / BÊN B ĐỂ TRỐNG, KHÔNG MẶC ĐỊNH Lodeza EOP:
 -- user xác nhận vai đổi theo loại hợp đồng — hợp đồng A-B thì Bên A là chủ đầu
--- tư còn Trung Nam là Bên B; hợp đồng B-B′ thì Trung Nam là Bên A còn nhà thầu
+-- tư còn Lodeza EOP là Bên B; hợp đồng B-B′ thì Lodeza EOP là Bên A còn nhà thầu
 -- phụ là Bên B.
 --
 -- CÁCH CHẠY: Supabase Dashboard -> SQL Editor -> dán TOÀN BỘ file -> Run.

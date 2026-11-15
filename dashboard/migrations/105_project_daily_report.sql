@@ -4,7 +4,7 @@
 -- User chốt 24/09/2026: mẫu "BÁO CÁO NGÀY" của công ty có nhiều thông tin tính
 -- theo CẢ NGÀY, không gắn vào từng dòng nhật ký sản lượng:
 --   • Thời tiết sáng / chiều, hình thức thi công / quản lý.
---   • Theo TỪNG ĐƠN VỊ (TNEC + thầu phụ chính danh + thầu phụ TNEC): phạm vi
+--   • Theo TỪNG ĐƠN VỊ (Lodeza EOP + thầu phụ chính danh + thầu phụ Lodeza EOP): phạm vi
 --     công việc, nhân sự theo chức danh, máy theo loại, việc hôm nay / ngày mai,
 --     ảnh hiện trường.
 --   • Vướng mắc, kiến nghị, người lập báo cáo.

@@ -1,7 +1,7 @@
 "use client";
 
 // Tab Nhà thầu & Hợp đồng (M3):
-// • HĐ A-B (CĐT ↔ TNEC) và B-B' (TNEC ↔ nhà thầu), chính danh / không chính danh,
+// • HĐ A-B (CĐT ↔ Lodeza EOP) và B-B' (Lodeza EOP ↔ nhà thầu), chính danh / không chính danh,
 //   chính / phụ, phạm vi theo lý trình × hạng mục, phụ lục phát sinh.
 // • Nhà thầu lấy từ danh mục đối tác CHUNG của Kế hoạch thu chi (finance_partners)
 //   qua RPC pc_partner_list / pc_partner_create — số tài khoản vẫn quản lý ở đó.
@@ -320,7 +320,7 @@ export default function ContractsTab({ projectId, access }: { projectId: string;
       )}
 
       <Card
-        title={`Hợp đồng A-B — Chủ đầu tư ↔ TNEC (${ab.length})`}
+        title={`Hợp đồng A-B — Chủ đầu tư ↔ Lodeza EOP (${ab.length})`}
         action={
           canEdit ? (
             <PrimaryButton onClick={() => setEditing("new-ab")}>
@@ -335,7 +335,7 @@ export default function ContractsTab({ projectId, access }: { projectId: string;
       </Card>
 
       <Card
-        title={`Hợp đồng B-B' — TNEC ↔ nhà thầu (${bb.length})${canFin && bbTotal ? ` · tổng ${formatMoneyShort(bbTotal)}` : ""}`}
+        title={`Hợp đồng B-B' — Lodeza EOP ↔ nhà thầu (${bb.length})${canFin && bbTotal ? ` · tổng ${formatMoneyShort(bbTotal)}` : ""}`}
         action={
           canEdit ? (
             <PrimaryButton onClick={() => setEditing("new-bb")}>

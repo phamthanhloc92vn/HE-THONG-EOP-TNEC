@@ -848,7 +848,7 @@ function PaymentModal({
 
   return (
     <Modal
-      title={`${row ? "Sửa" : "Thêm"} thanh toán ${contract.contract_type === "A_B" ? "(CĐT trả TNEC)" : "(TNEC trả nhà thầu)"} — ${contract.partner_name}`}
+      title={`${row ? "Sửa" : "Thêm"} thanh toán ${contract.contract_type === "A_B" ? "(CĐT trả Lodeza EOP)" : "(Lodeza EOP trả nhà thầu)"} — ${contract.partner_name}`}
       onClose={onClose}
     >
       <div className="grid grid-cols-2 gap-3">

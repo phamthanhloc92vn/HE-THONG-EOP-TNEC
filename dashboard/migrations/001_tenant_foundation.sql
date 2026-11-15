@@ -12,7 +12,7 @@ create table if not exists tenant_config (
   updated_at timestamptz not null default now()
 );
 
--- Seed giá trị TNEC hiện tại (khớp 100% hành vi đang chạy — code sẽ fallback
+-- Seed giá trị Lodeza EOP hiện tại (khớp 100% hành vi đang chạy — code sẽ fallback
 -- về đúng các giá trị này nếu thiếu dòng config)
 insert into tenant_config (key, value, description) values
   ('company_name',        '"Trung Nam E&C"',            'Tên công ty đầy đủ'),

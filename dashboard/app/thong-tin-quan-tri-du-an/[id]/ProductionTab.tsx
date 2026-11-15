@@ -657,7 +657,7 @@ function LogModal({
         </Field>
         <Field label="Nhà thầu thực hiện (HĐ B-B')">
           <Select value={conId} onChange={(e) => setConId(e.target.value)}>
-            <option value="">— TNEC tự làm / chưa rõ —</option>
+            <option value="">— Lodeza EOP tự làm / chưa rõ —</option>
             {conOptions.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.partner_name} {c.contract_no ? `(${c.contract_no})` : ""}

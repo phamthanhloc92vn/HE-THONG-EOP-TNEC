@@ -490,7 +490,7 @@ export default function ProjectMap() {
             </div>
             <div className="min-w-0">
               <p className="font-heading font-extrabold text-xs text-slate-800 leading-tight">Bản đồ dự án</p>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Trung Nam E&C</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Lodeza EOP</p>
             </div>
           </div>
 

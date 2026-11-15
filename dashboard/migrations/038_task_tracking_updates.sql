@@ -21,7 +21,7 @@
 -- CÁCH CHẠY: Supabase Dashboard -> SQL Editor -> dán toàn bộ file -> Run.
 -- An toàn chạy lại nhiều lần.
 -- PHỤ THUỘC: cần migration 010 (hàm caller_can_manage_tasks, caller_owns_task)
--- và 008 (caller_employee_name) đã chạy trước. Cả hai đều đã chạy trên TNEC.
+-- và 008 (caller_employee_name) đã chạy trước. Cả hai đều đã chạy trên Lodeza EOP.
 -- ============================================================
 
 create table if not exists public.task_updates (

@@ -108,7 +108,7 @@ create unique index if not exists uq_fpc_partner_project_contract
 -- khách khác mà chưa chạy đủ migration cũ thì policy bên dưới sẽ lỗi "column
 -- does not exist" / "function does not exist" giữa chừng, và vì SQL Editor chạy
 -- trong MỘT transaction nên toàn bộ file rollback sạch — rất khó lần ra nguyên
--- nhân. Cả hai lệnh đều idempotent, chạy trên TNEC là no-op.
+-- nhân. Cả hai lệnh đều idempotent, chạy trên Lodeza EOP là no-op.
 alter table public.approval_permissions
   add column if not exists can_view_reports boolean not null default false;
 

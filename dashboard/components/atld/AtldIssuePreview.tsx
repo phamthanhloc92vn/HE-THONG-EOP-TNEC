@@ -79,7 +79,7 @@ export default function AtldIssuePreview({ data, status, onClose }: { data: Issu
         <div className="overflow-auto p-4 bg-slate-100 rounded-b-2xl">
           <div style={{ ...PAPER, padding: "28px 32px", minWidth: 720, boxShadow: "0 1px 4px rgba(0,0,0,.15)" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/templates/Phieu_xuat_kho_atld_letterhead.png" alt="Trung Nam E&C" style={{ height: 78, width: "auto" }} />
+            <img src="/templates/Phieu_xuat_kho_atld_letterhead.png" alt="Lodeza EOP" style={{ height: 78, width: "auto" }} />
             <div style={{ textAlign: "center", fontWeight: 700, fontSize: 20, marginTop: 14 }}>PHIẾU XUẤT KHO</div>
             <div style={{ textAlign: "center", fontStyle: "italic", fontSize: 13, marginTop: 4 }}>Số: {data.soPhieu}</div>
 

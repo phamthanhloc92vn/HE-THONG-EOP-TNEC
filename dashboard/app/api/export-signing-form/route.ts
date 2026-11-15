@@ -23,7 +23,7 @@ import Docxtemplater from "docxtemplater";
 // sinh ra từ file gốc của công ty — letterhead, khung viền, ô ký giữ nguyên.
 const TEMPLATE_HO_SO = "phieu_trinh_ky_ho_so_van_ban_template.docx";
 const TEMPLATE_HOP_DONG = "phieu_trinh_ky_hop_dong_template.docx";
-// Tờ trình TTr/TNE&C (migration 088). Bản đã gắn tag sinh ra từ To_Trinh_2.docx của
+// Tờ trình TTr/Lodeza EOP (migration 088). Bản đã gắn tag sinh ra từ To_Trinh_2.docx của
 // công ty — letterhead, footer, khung 3 ô ký giữ nguyên 100%.
 const TEMPLATE_TO_TRINH = "to_trinh_2_template.docx";
 // Phiếu yêu cầu HC-BM 023/PYC (migration 091). Bảng vật tư dùng VÒNG LẶP HÀNG
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ─── TỜ TRÌNH (TTr/TNE&C, migration 088) ───
+    // ─── TỜ TRÌNH (TTr/Lodeza EOP, migration 088) ───
     // Tờ này là một LÁ THƯ, không có bảng số liệu: mọi câu chữ do route ghép rồi
     // đổ vào đúng 9 tag. Rẽ nhánh sớm rồi trả về luôn, như nhánh hợp đồng.
     if (loai === "to_trinh") {
@@ -164,9 +164,9 @@ export async function POST(request: NextRequest) {
       const nam = lay("year");
 
       // Số hiệu do văn thư cấp sau khi ký. Bỏ trống thì in khung sẵn "………/26/TTr/
-      // TNE&C" đúng như tờ giấy, để điền tay — hơn hẳn in ra một ô trắng.
+      // Lodeza EOP" đúng như tờ giấy, để điền tay — hơn hẳn in ra một ô trắng.
       const soToTrinh =
-        String(body.soToTrinh || "").trim() || `………/${nam.slice(-2)}/TTr/TNE&C`;
+        String(body.soToTrinh || "").trim() || `………/${nam.slice(-2)}/TTr/Lodeza EOP`;
 
       // Khối chi phí: 2 dòng trong CÙNG một đoạn (template bật linebreaks).
       // Tờ trình không xin tiền thì cả khối rỗng — không in dòng "0 đồng".

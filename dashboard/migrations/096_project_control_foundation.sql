@@ -3,7 +3,7 @@
 --
 -- Đặc tả: "Module Quản trị dự án xây dựng" v0.1 (23/09/2026), dự án mẫu ĐT.769.
 -- Chốt với user 24/09/2026:
---   • Dùng nội bộ TNEC, nằm trong HCNS (menu Quản lý dự án > Thông tin quản trị dự án).
+--   • Dùng nội bộ Lodeza EOP, nằm trong HCNS (menu Quản lý dự án > Thông tin quản trị dự án).
 --   • 1 Ban điều hành (departments type='bdh') = 1 dự án. Khoá theo bdh_name,
 --     giống project_locations (016).
 --   • Nhà thầu DÙNG CHUNG danh mục đối tác của Kế hoạch thu chi (finance_partners,

@@ -254,7 +254,7 @@ export function exportPhieuThanhToan(data: any) {
       <tr>
         <td style="width: 55%; text-align: left;">
           <div style="font-family: Arial, sans-serif; font-weight: bold; font-size: 15pt; color: #005BAC;">TRUNG <span style="color: #EF4444;">N</span>AM <span style="color: #00AEEF; font-size: 11pt; font-weight: normal; font-style: italic;">E&C</span></div>
-          <div style="font-family: Arial, sans-serif; font-weight: bold; font-size: 7.5pt; color: #333333; margin-top: 2px;">CÔNG TY CP XÂY DỰNG VÀ LẮP MÁY TRUNG NAM</div>
+          <div style="font-family: Arial, sans-serif; font-weight: bold; font-size: 7.5pt; color: #333333; margin-top: 2px;">Lodeza EOP</div>
           <div style="font-family: Arial, sans-serif; font-size: 6.5pt; color: #555555; line-height: 1.2; margin-top: 3px;">
             A : Tầng trệt tòa nhà Safomec, 7/1 Thành Thái, Phường 14, Quận 10, TPHCM<br>
             T : (+84) 834 70 75 79   E : info.tnec@trungnamgroup.com.vn<br>
@@ -276,7 +276,7 @@ export function exportPhieuThanhToan(data: any) {
         <tr>
           <td style="width: 12%; font-weight: bold; vertical-align: top;">Kính gửi:</td>
           <td style="width: 88%; font-weight: bold;">
-            - Ban lãnh đạo Công ty CP XD và LM Trung Nam;<br/>
+            - Ban lãnh đạo Lodeza EOP;<br/>
             - Phòng HCSN công ty,
           </td>
         </tr>
@@ -408,7 +408,7 @@ export function exportPhieuCongTac(data: any) {
       <tr>
         <td style="width: 55%; text-align: left;">
           <div style="font-family: Arial, sans-serif; font-weight: bold; font-size: 15pt; color: #005BAC;">TRUNG <span style="color: #EF4444;">N</span>AM <span style="color: #00AEEF; font-size: 11pt; font-weight: normal; font-style: italic;">E&C</span></div>
-          <div style="font-family: Arial, sans-serif; font-weight: bold; font-size: 7.5pt; color: #333333; margin-top: 2px;">CÔNG TY CP XÂY DỰNG VÀ LẮP MÁY TRUNG NAM</div>
+          <div style="font-family: Arial, sans-serif; font-weight: bold; font-size: 7.5pt; color: #333333; margin-top: 2px;">Lodeza EOP</div>
           <div style="font-family: Arial, sans-serif; font-size: 6.5pt; color: #555555; line-height: 1.2; margin-top: 3px;">
             A : Tầng trệt tòa nhà Safomec, 7/1 Thành Thái, Phường 14, Quận 10, TPHCM<br>
             T : (+84) 834 70 75 79   E : info.tnec@trungnamgroup.com.vn<br>
@@ -576,7 +576,7 @@ export function exportDeNghiChuyenTien(payments: any[], month: string) {
       <tr>
         <td style="width: 55%; text-align: left; border: none; padding: 2px; vertical-align: top;">
           <div style="font-family: Arial, sans-serif; font-weight: bold; font-size: 15pt; color: #005BAC;">TRUNG <span style="color: #EF4444;">N</span>AM <span style="color: #00AEEF; font-size: 11pt; font-weight: normal; font-style: italic;">E&C</span></div>
-          <div style="font-family: Arial, sans-serif; font-weight: bold; font-size: 7.5pt; color: #333333; margin-top: 2px;">CÔNG TY CP XÂY DỰNG VÀ LẮP MÁY TRUNG NAM</div>
+          <div style="font-family: Arial, sans-serif; font-weight: bold; font-size: 7.5pt; color: #333333; margin-top: 2px;">Lodeza EOP</div>
           <div style="font-family: Arial, sans-serif; font-size: 6.5pt; color: #555555; line-height: 1.2; margin-top: 3px;">
             A : Tầng trệt tòa nhà Safomec, 7/1 Thành Thái, Phường 14, Quận 10, TPHCM<br>
             T : (+84) 834 70 75 79   E : info.tnec@trungnamgroup.com.vn<br>
@@ -598,7 +598,7 @@ export function exportDeNghiChuyenTien(payments: any[], month: string) {
         <tr>
           <td style="width: 12%; font-weight: bold; vertical-align: top; border: none; padding: 2px;">Kính gửi:</td>
           <td style="width: 88%; font-weight: bold; border: none; padding: 2px;">
-            - Ban Lãnh đạo Công ty Cổ phần Xây dựng và Lắp máy Trung Nam;<br/>
+            - Ban Lãnh đạo Lodeza EOP;<br/>
             - Phòng Tài chính - Kế toán.
           </td>
         </tr>

@@ -1,15 +1,15 @@
 import type { MetadataRoute } from "next";
 
 // Web App Manifest — biến web thành PWA "cài được" lên màn hình chính iPhone/Android.
-// Tên/mô tả lấy theo biến môi trường tenant (giống layout), thiếu thì fallback TNEC.
+// Tên/mô tả lấy theo biến môi trường tenant (giống layout), thiếu thì fallback Lodeza EOP.
 export default function manifest(): MetadataRoute.Manifest {
-  const title = process.env.NEXT_PUBLIC_SYSTEM_TITLE || "Trungnam E&C";
+  const title = process.env.NEXT_PUBLIC_SYSTEM_TITLE || "Lodeza EOP";
   return {
     name: title,
-    short_name: process.env.NEXT_PUBLIC_SYSTEM_SHORT_NAME || "TNEC",
+    short_name: process.env.NEXT_PUBLIC_SYSTEM_SHORT_NAME || "Lodeza EOP",
     description:
       process.env.NEXT_PUBLIC_SYSTEM_DESCRIPTION ||
-      "Phần mềm Quản lý Hành chính Nhân sự - Trung Nam E&C",
+      "Phần mềm Quản lý Hành chính Nhân sự - Lodeza EOP",
     start_url: "/",
     scope: "/",
     display: "standalone",

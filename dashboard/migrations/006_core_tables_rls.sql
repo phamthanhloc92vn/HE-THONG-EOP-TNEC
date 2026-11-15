@@ -2,7 +2,7 @@
 -- 006 — BẬT RLS CHO 3 BẢNG LÕI: employees, tasks, allowed_users
 --
 -- BỐI CẢNH (quan trọng, đọc trước khi chạy):
--- Trên production TNEC hiện tại 3 bảng này ĐÃ được bảo vệ — kiểm chứng bằng
+-- Trên production Lodeza EOP hiện tại 3 bảng này ĐÃ được bảo vệ — kiểm chứng bằng
 -- cách gọi REST API bằng anon key: cả 3 đều trả 0 dòng. Nhưng việc bật RLS đó
 -- được làm TAY trong Supabase Dashboard, KHÔNG có trong repo. Hệ quả: chạy trọn
 -- bộ migration của repo lên một project Supabase mới (deploy cho khách hàng) sẽ
@@ -18,7 +18,7 @@
 --   • Chỉ bật RLS nếu đang tắt
 --   • Chỉ tạo policy nếu bảng CHƯA có policy nào
 --   • Không xoá, không sửa bất kỳ policy sẵn có nào
--- ⇒ Chạy trên production TNEC = KHÔNG ĐỔI GÌ (no-op an toàn).
+-- ⇒ Chạy trên production Lodeza EOP = KHÔNG ĐỔI GÌ (no-op an toàn).
 -- ⇒ Chạy trên project mới = thiết lập mức bảo vệ tối thiểu đúng đắn.
 --
 -- ⚠ QUAN HỆ VỚI MIGRATION 010 (sửa 04/08/2026):
@@ -29,7 +29,7 @@
 -- tuần tự 001->022, khoá xoá của 010 bị vô hiệu HOÀN TOÀN.
 -- Nay tách thành 3 policy riêng SELECT / INSERT / UPDATE, KHÔNG có DELETE, để
 -- 010 là nơi duy nhất định đoạt quyền xoá.
--- (Production TNEC không dính lỗi này: policy `tasks` ở đó do người vận hành
+-- (Production Lodeza EOP không dính lỗi này: policy `tasks` ở đó do người vận hành
 -- tạo tay, đã tách sẵn theo lệnh — kiểm chứng bằng pg_policies ngày 04/08/2026.)
 --
 -- CÁCH CHẠY: Supabase Dashboard -> SQL Editor -> New Query -> dán và Run.
@@ -144,7 +144,7 @@ end $$;
 
 -- ─── VÁ NGƯỢC: gỡ policy `FOR ALL` do BẢN CŨ của chính file này tạo ───
 -- Chỉ chạm vào đúng một policy mang tên `authenticated_all_tasks` — dấu vết
--- riêng của bản cũ. Project nào không có nó (kể cả production TNEC) thì khối
+-- riêng của bản cũ. Project nào không có nó (kể cả production Lodeza EOP) thì khối
 -- này là no-op tuyệt đối.
 -- Gỡ xong phải cấp bù SELECT/INSERT/UPDATE, nếu không thì tenant nào đã chạy
 -- cả 006 cũ lẫn 010 sẽ chỉ còn mỗi policy DELETE và bảng `tasks` chết hẳn.

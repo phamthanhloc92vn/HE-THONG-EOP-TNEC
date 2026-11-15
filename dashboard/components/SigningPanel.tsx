@@ -79,7 +79,7 @@ const NUT_LAP_PHIEU: { loai: SigningLoai; label: string; title: string; cls: str
   { loai: "tam_ung", label: "Tạm ứng", cls: "bg-rose-600 hover:bg-rose-700 shadow-rose-500/10",
     title: "Giấy đề nghị tạm ứng (TCKT/BM/001)" },
   { loai: "to_trinh", label: "Tờ trình", cls: "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/10",
-    title: "Trình Ban Giám đốc một đề xuất / xin chủ trương (TTr/TNE&C)" },
+    title: "Trình Ban Giám đốc một đề xuất / xin chủ trương (TTr/Lodeza EOP)" },
   { loai: "phieu_yeu_cau", label: "Phiếu yêu cầu", cls: "bg-amber-600 hover:bg-amber-700 shadow-amber-500/10",
     title: "Yêu cầu cấp vật tư, hàng hoá, máy móc thiết bị (HC-BM 023/PYC)" },
   { loai: "don_dat_hang", label: "Đơn đặt hàng", cls: "bg-teal-600 hover:bg-teal-700 shadow-teal-500/10",

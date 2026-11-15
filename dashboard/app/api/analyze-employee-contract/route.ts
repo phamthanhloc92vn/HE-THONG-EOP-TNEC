@@ -12,7 +12,7 @@ Nhiệm vụ của bạn là đọc nội dung hợp đồng lao động cá nh�
 ━━━ CÁC TRƯỜNG THÔNG TIN CẦN TRÍCH XUẤT ━━━
 1. "employee_name": Họ và tên nhân viên (ví dụ: "Huỳnh Giáp Nhân").
 2. "employee_code": Mã nhân viên (nếu có ghi trong hợp đồng, ví dụ: "3335"). Nếu không có, điền rỗng "".
-3. "contract_number": Số hợp đồng lao động / Số HĐLĐ (ví dụ: "003335/2025/HĐLĐ/TNE&C").
+3. "contract_number": Số hợp đồng lao động / Số HĐLĐ (ví dụ: "003335/2025/HĐLĐ/Lodeza EOP").
 4. "type": Loại hợp đồng lao động. Phải là một trong các giá trị sau:
    - "Thử việc"
    - "Không xác định thời hạn"
@@ -22,7 +22,7 @@ Nhiệm vụ của bạn là đọc nội dung hợp đồng lao động cá nh�
    - "Xác định thời hạn khác"
 5. "sign_date": Ngày ký hợp đồng lao động (định dạng YYYY-MM-DD, ví dụ: "2026-04-01").
 6. "onboard_date": Ngày nhận việc / Ngày bắt đầu làm việc (định dạng YYYY-MM-DD, ví dụ: "2025-02-01").
-7. "probation_contract_number": Số hợp đồng thử việc (nếu có, ví dụ: "006409/2026/HĐTV/TNE&C"). Nếu không có, điền rỗng "".
+7. "probation_contract_number": Số hợp đồng thử việc (nếu có, ví dụ: "006409/2026/HĐTV/Lodeza EOP"). Nếu không có, điền rỗng "".
 8. "probation_start_date": Ngày bắt đầu thử việc (định dạng YYYY-MM-DD, ví dụ: "2025-02-01"). Nếu không có, điền rỗng "".
 9. "probation_end_date": Ngày kết thúc thử việc (định dạng YYYY-MM-DD, ví dụ: "2025-04-01"). Nếu không có, điền rỗng "".
 10. "base_salary_insurance": Mức lương BHXH / Lương cơ bản đóng bảo hiểm (kiểu số nguyên, ví dụ: 5000000. Nếu trống hoặc không nêu rõ, điền null).

@@ -1008,7 +1008,7 @@ function PenaltyModal({
             </label>
             <label className="block space-y-1">
               <span className={lbl}>{kind === "ppe" ? "Số phiếu cấp phát" : "Số quyết định / Phiếu cấp phát"}</span>
-              <input value={inp.so_quyet_dinh ?? ""} disabled={!canInput} onChange={(e) => setI("so_quyet_dinh", e.target.value)} placeholder="VD 52/026/QĐ/TNE&C" className={inputCls} />
+              <input value={inp.so_quyet_dinh ?? ""} disabled={!canInput} onChange={(e) => setI("so_quyet_dinh", e.target.value)} placeholder="VD 52/026/QĐ/Lodeza EOP" className={inputCls} />
             </label>
             <label className="block space-y-1">
               <span className={lbl}>Ngày ban hành</span>

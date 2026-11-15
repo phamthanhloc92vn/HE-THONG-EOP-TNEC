@@ -769,7 +769,7 @@ function IssueModal({
         </Field>
         <Field label="Nhà thầu nhận">
           <Select value={conId} onChange={(e) => setConId(e.target.value)}>
-            <option value="">— TNEC tự thi công —</option>
+            <option value="">— Lodeza EOP tự thi công —</option>
             {ctx.contracts.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.partner_name}

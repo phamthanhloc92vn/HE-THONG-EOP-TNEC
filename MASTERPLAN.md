@@ -1,7 +1,7 @@
-# 🏗️ MASTERPLAN: PM-HCNS-TNEC (Vibe Coding Edition)
+# 🏗️ MASTERPLAN: Lodeza EOP (Vibe Coding Edition)
 
 ## 📋 Tổng Quan Dự Án (Project Summary)
-PM-HCNS-TNEC là hệ thống quản lý quy trình hành chính nhân sự và dự án tích hợp (Trung Nam EC). Hệ thống bao gồm ứng dụng Desktop chạy local (Windows/Mac) hỗ trợ bộ phận HR tự động chấm điểm CV ứng viên dựa trên Job Description (JD) bằng công nghệ LLM (OpenAI/DeepSeek), và Web Dashboard quản trị toàn diện quy trình tuyển dụng, thử việc, văn thư nội bộ. Ưu tiên tốc độ phát triển (Vibe Coding), giao diện hiện đại và kiến trúc dễ bảo trì.
+Lodeza EOP là hệ thống quản lý quy trình hành chính nhân sự và dự án tích hợp (Lodeza EOP). Hệ thống bao gồm ứng dụng Desktop chạy local (Windows/Mac) hỗ trợ bộ phận HR tự động chấm điểm CV ứng viên dựa trên Job Description (JD) bằng công nghệ LLM (OpenAI/DeepSeek), và Web Dashboard quản trị toàn diện quy trình tuyển dụng, thử việc, văn thư nội bộ. Ưu tiên tốc độ phát triển (Vibe Coding), giao diện hiện đại và kiến trúc dễ bảo trì.
 
 ---
 
@@ -21,7 +21,7 @@ PM-HCNS-TNEC là hệ thống quản lý quy trình hành chính nhân sự và 
 Sử dụng mô hình **Modular Service-Based** (tương tự MVC nhưng đơn giản hóa cho Desktop App). Tách biệt hoàn toàn giao diện (UI) và logic xử lý (Core).
 
 ```text
-PM-HCNS-TNEC/
+Lodeza EOP/
 │
 ├── .env                     # 🔐 Lưu API KEY, Base URL (Không commit lên Git)
 ├── requirements.txt         # 📦 Danh sách dependencies

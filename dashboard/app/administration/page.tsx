@@ -253,9 +253,9 @@ const INITIAL_CHECKLIST: ChecklistItem[] = [];
 
 
 const INITIAL_RECURRING: RecurringPayment[] = [
-  { name: "Tiền điện văn phòng", bank: "MB Bank", account: "1234567890", owner: "EVN TP.HCM", lastAmount: 14500000, content: "Thanh toan tien dien van phong TNEC thang" },
-  { name: "Tiền nước văn phòng", bank: "Vietcombank", account: "001100445566", owner: "SAWACO", lastAmount: 1200000, content: "Thanh toan tien nuoc TNEC thang" },
-  { name: "Cước Internet cáp quang", bank: "BIDV", account: "1199558877", owner: "VIETTEL TELECOM", lastAmount: 3500000, content: "Thanh toan cuoc internet TNEC thang" }
+  { name: "Tiền điện văn phòng", bank: "MB Bank", account: "1234567890", owner: "EVN TP.HCM", lastAmount: 14500000, content: "Thanh toan tien dien van phong Lodeza EOP thang" },
+  { name: "Tiền nước văn phòng", bank: "Vietcombank", account: "001100445566", owner: "SAWACO", lastAmount: 1200000, content: "Thanh toan tien nuoc Lodeza EOP thang" },
+  { name: "Cước Internet cáp quang", bank: "BIDV", account: "1199558877", owner: "VIETTEL TELECOM", lastAmount: 3500000, content: "Thanh toan cuoc internet Lodeza EOP thang" }
 ];
 
 // Danh mục nhà cung cấp nằm HOÀN TOÀN trong bảng `suppliers` (Supabase).
@@ -307,7 +307,7 @@ const DEFAULT_REPORT_ROWS: Array<{ stt: string; content: string; category_type: 
   { stt: "1.8", content: "Chi phí pickle ball", category_type: "office" },
   { stt: "19", content: "Chi phí di chuyển trang thiết bị làm việc", category_type: "office" },
   { stt: "20", content: "Làm móc khóa, quà tặng tuyển dụng", category_type: "office" },
-  { stt: "2", content: "Sự kiện sinh nhật 18 TNEC", category_type: "office" },
+  { stt: "2", content: "Sự kiện sinh nhật 18 Lodeza EOP", category_type: "office" },
   { stt: "2.1", content: "Chi phí sảnh tiệc", category_type: "office" },
   { stt: "2.2", content: "Tổ chức sự kiện", category_type: "office" },
   { stt: "2.3", content: "Quà tặng", category_type: "office" },
@@ -5904,7 +5904,7 @@ export default function AdministrationPage() {
                             <div className="flex justify-between items-start border-b border-slate-300 pb-4 mb-4">
                               <div className="text-left">
                                 <div className="text-base font-black text-[#005BAC] font-sans">TRUNG <span className="text-red-500">N</span>AM <span className="text-sky-400 text-xs font-normal italic">E&C</span></div>
-                                <div className="text-[7.5px] font-bold text-slate-800 font-sans mt-0.5">CÔNG TY CP XÂY DỰNG VÀ LẮP MÁY TRUNG NAM</div>
+                                <div className="text-[7.5px] font-bold text-slate-800 font-sans mt-0.5">Lodeza EOP</div>
                                 <div className="text-[6.5px] text-slate-500 font-sans mt-1 leading-tight">
                                   A: Tầng trệt tòa nhà Safomec, 7/1 Thành Thái, Phường 14, Quận 10, TPHCM<br/>
                                   T: (+84) 834 70 75 79 &nbsp; E: info.tnec@trungnamgroup.com.vn
@@ -7945,7 +7945,7 @@ export default function AdministrationPage() {
                     <div className="glass bg-white rounded-2xl p-6 border border-slate-200/50 shadow-premium">
                       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                         <div>
-                          <h3 className="font-heading font-extrabold text-[#005BAC] text-sm">CHI PHÍ QUẢN LÝ HÀNH CHÍNH NĂM {reportYear} - TRUNGNAM E&C</h3>
+                          <h3 className="font-heading font-extrabold text-[#005BAC] text-sm">CHI PHÍ QUẢN LÝ HÀNH CHÍNH NĂM {reportYear} - Lodeza EOP</h3>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
@@ -8406,7 +8406,7 @@ export default function AdministrationPage() {
               <div className="flex justify-between items-start border-b border-slate-300 pb-4 mb-4">
                 <div className="text-left">
                   <div className="text-base font-black text-[#005BAC] font-sans">TRUNG <span className="text-red-500">N</span>AM <span className="text-sky-400 text-xs font-normal italic">E&C</span></div>
-                  <div className="text-[7.5px] font-bold text-slate-800 font-sans mt-0.5">CÔNG TY CP XÂY DỰNG VÀ LẮP MÁY TRUNG NAM</div>
+                  <div className="text-[7.5px] font-bold text-slate-800 font-sans mt-0.5">Lodeza EOP</div>
                   <div className="text-[6.5px] text-slate-500 font-sans mt-1 leading-tight">
                     A: Tầng trệt tòa nhà Safomec, 7/1 Thành Thái, Phường 14, Quận 10, TPHCM<br/>
                     T: (+84) 834 70 75 79 &nbsp; E: info.tnec@trungnamgroup.com.vn
@@ -8424,7 +8424,7 @@ export default function AdministrationPage() {
 
               {/* Destination */}
               <div className="mb-4 text-xs font-bold leading-normal">
-                Kính gửi: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - Ban lãnh đạo Công ty CP XD và LM Trung Nam;<br/>
+                Kính gửi: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - Ban lãnh đạo Lodeza EOP;<br/>
                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - {documentType === "payment" ? "Phòng HCSN công ty," : "Phòng Kế toán công ty,"}
               </div>
 
@@ -8932,7 +8932,7 @@ CREATE POLICY "Allow public delete for invoices" ON public.invoices FOR DELETE U
                 <div className="flex justify-between items-start border-b border-slate-300 pb-4 mb-4">
                   <div className="text-left font-sans">
                     <div className="text-base font-black text-[#005BAC]">TRUNG <span className="text-red-500">N</span>AM <span className="text-sky-400 text-xs font-normal italic">E&C</span></div>
-                    <div className="text-[7.5px] font-bold text-slate-800 mt-0.5">CÔNG TY CP XÂY DỰNG VÀ LẮP MÁY TRUNG NAM</div>
+                    <div className="text-[7.5px] font-bold text-slate-800 mt-0.5">Lodeza EOP</div>
                     <div className="text-[6.5px] text-slate-500 mt-1 leading-tight">
                       A: Tầng trệt tòa nhà Safomec, 7/1 Thành Thái, Phường 14, Quận 10, TPHCM<br/>
                       T: (+84) 834 70 75 79 &nbsp; E: info.tnec@trungnamgroup.com.vn
@@ -8950,7 +8950,7 @@ CREATE POLICY "Allow public delete for invoices" ON public.invoices FOR DELETE U
 
                 {/* Destination */}
                 <div className="mb-4 text-xs font-bold leading-normal">
-                  Kính gửi: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - Ban lãnh đạo Công ty CP XD và LM Trung Nam;<br/>
+                  Kính gửi: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - Ban lãnh đạo Lodeza EOP;<br/>
                   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - Phòng Kế toán công ty,
                 </div>
 

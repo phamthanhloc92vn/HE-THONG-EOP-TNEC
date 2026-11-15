@@ -1,6 +1,6 @@
 /**
  * ╔══════════════════════════════════════════════════════════════╗
- * ║  VĂN THƯ – TRUNGNAM E&C – Google Apps Script Web App        ║
+ * ║  VĂN THƯ – Lodeza EOP – Google Apps Script Web App          ║
  * ║  doGet  → Trả dữ liệu JSON cho Dashboard                    ║
  * ║  Deploy: Deploy as Web App (Execute as Me, Anyone)           ║
  * ╚══════════════════════════════════════════════════════════════╝
@@ -66,7 +66,7 @@ function doGet(e) {
       return response(_buildVanThuStats(ss));
     }
 
-    return response({ status: "OK", message: "VanThu-TNEC API Ready" });
+    return response({ status: "OK", message: "VanThu-Lodeza EOP API Ready" });
 
   } catch (err) {
     return response({ success: false, error: err.message });

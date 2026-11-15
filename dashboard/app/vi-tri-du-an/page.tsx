@@ -21,7 +21,7 @@ export default function ProjectLocationPage() {
     <div className="flex min-h-screen bg-[#F7F9FC]">
       <Sidebar />
       <div className="ml-60 flex-1 flex flex-col min-w-0">
-        <Header title="Vị trí dự án" subtitle="Bản đồ dự án & gói thầu Trung Nam E&C" />
+        <Header title="Vị trí dự án" subtitle="Bản đồ dự án & gói thầu Lodeza EOP" />
         <main className="flex-1 relative overflow-hidden">
           <ProjectMap />
         </main>

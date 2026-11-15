@@ -723,7 +723,7 @@ export async function parseSheetLocal(file: File, kindHint: PartnerKind | "auto"
     const linkAt = (ri: number, ci: number): string => {
       const c = ws[XLSX.utils.encode_cell({ r: ref.s.r + ri, c: ref.s.c + ci })] as { l?: { Target?: string }; f?: string } | undefined;
       if (!c) return "";
-      // Siêu liên kết thường, hoặc công thức =HYPERLINK("đường dẫn","chữ hiển thị") (file của TNEC dùng kiểu này).
+      // Siêu liên kết thường, hoặc công thức =HYPERLINK("đường dẫn","chữ hiển thị") (file của Lodeza EOP dùng kiểu này).
       if (c.l?.Target) return String(c.l.Target).trim();
       const m = c.f ? c.f.match(/^\s*HYPERLINK\(\s*"([^"]*)"/i) : null;
       return m ? m[1].trim() : "";

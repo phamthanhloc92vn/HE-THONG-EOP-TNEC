@@ -13,7 +13,7 @@
 
 export const DEFAULT_VERSION = "1.0";
 export const DEFAULT_EFFECTIVE_DATE = "01/11/2026";
-export const POLICY_COMPANY = "Công ty Cổ phần Xây dựng và lắp máy Trung Nam";
+export const POLICY_COMPANY = "Lodeza EOP";
 
 export const DEFAULT_BODY = `Trang này cho biết phần mềm lưu những dữ liệu nào về bạn, dùng vào việc gì, ai xem được và bạn có những quyền gì. Căn cứ: Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân.
 

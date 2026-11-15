@@ -31,7 +31,7 @@
 --
 -- CÁCH CHẠY: Supabase Dashboard -> SQL Editor -> dán toàn bộ file -> Run.
 -- An toàn chạy lại nhiều lần.
--- PHỤ THUỘC: migration 045 (RLS đọc bảng tasks) đã chạy. Đã chạy trên TNEC.
+-- PHỤ THUỘC: migration 045 (RLS đọc bảng tasks) đã chạy. Đã chạy trên Lodeza EOP.
 -- ============================================================
 
 

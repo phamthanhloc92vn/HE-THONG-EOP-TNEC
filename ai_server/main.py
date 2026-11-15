@@ -21,7 +21,7 @@ if not OPENAI_API_KEY:
     OPENAI_API_KEY = os.getenv("NEXT_PUBLIC_OPENAI_API_KEY")
 
 # Initialize FastAPI app
-app = FastAPI(title="Trung Nam E&C AI Parallel Server", version="1.0.0")
+app = FastAPI(title="Lodeza EOP AI Parallel Server", version="1.0.0")
 
 # Initialize OpenAI client
 openai_client = None

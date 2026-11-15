@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     // Auto-generate a document number if none is set
     const docNumber = meeting.project_name 
       ? `Số: ${day}${month}/${year}/BBH/${meeting.project_name.toUpperCase()}`
-      : `Số: ${day}${month}/${year}/BBH/TNE&C`;
+      : `Số: ${day}${month}/${year}/BBH/Lodeza EOP`;
 
     doc.setData({
       doc_number: meeting.doc_number || docNumber,

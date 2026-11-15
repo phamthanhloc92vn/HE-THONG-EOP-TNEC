@@ -794,7 +794,7 @@ function AddPartnerModal({ saving, nextSort, projects, defaultProjectCode, defau
           <label className="flex flex-col gap-1.5">
             <span className={labelCls}>Số hợp đồng</span>
             <input value={contractNo} onChange={e => setContractNo(e.target.value)}
-              placeholder="VD 1011/2025/HĐNT/TNE&C-YP" className={`${inputCls} font-mono`} />
+              placeholder="VD 1011/2025/HĐNT/Lodeza EOP-YP" className={`${inputCls} font-mono`} />
           </label>
           <div className="grid grid-cols-2 gap-3.5">
             <label className="flex flex-col gap-1.5">

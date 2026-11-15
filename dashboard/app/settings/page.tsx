@@ -1646,7 +1646,7 @@ function SettingsContent() {
                 <div className="text-xs font-semibold text-slate-600">
                   <div className="bg-slate-50 rounded-xl p-4 space-y-0.5">
                     <p className="text-slate-400 text-[10px]">Phiên bản</p>
-                    <p className="text-[#005BAC] font-bold">EOP TNE&amp;C version 2.0</p>
+                    <p className="text-[#005BAC] font-bold">Lodeza EOP version 2.0</p>
                   </div>
                 </div>
               </div>

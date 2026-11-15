@@ -30,9 +30,9 @@ export const EQUIPMENT_TYPES = ["Máy đào", "Xe ủi", "Xe lu", "Xe ben", "Xe 
 
 export type UnitGroup = "TNEC" | "NOMINAL" | "NON_NOMINAL";
 export const UNIT_GROUP_LABEL: Record<UnitGroup, string> = {
-  TNEC: "TNEC",
+  TNEC: "Lodeza EOP",
   NOMINAL: "Thầu phụ chính danh",
-  NON_NOMINAL: "Thầu phụ TNEC",
+  NON_NOMINAL: "Thầu phụ Lodeza EOP",
 };
 
 export type DailyUnit = {
@@ -104,9 +104,9 @@ function contractScopeText(contractId: string, ctx: DailyCtx): string {
   return parts.join("; ");
 }
 
-// Đơn vị mặc định: TNEC + mọi HĐ B-B' của dự án (chính danh trước).
+// Đơn vị mặc định: Lodeza EOP + mọi HĐ B-B' của dự án (chính danh trước).
 export function defaultUnits(ctx: DailyCtx): DailyUnit[] {
-  const units = [emptyUnit("TNEC", "TNEC", "TNEC")];
+  const units = [emptyUnit("TNEC", "Lodeza EOP", "TNEC")];
   ctx.contracts
     .filter((c) => c.contract_type === "B_B1")
     .forEach((c) =>
@@ -264,7 +264,7 @@ export type DailyModel = {
   date: string;
   tomorrow: string;
   report: PcDailyReport | null;
-  units: DailyUnit[]; // TNEC + thầu phụ
+  units: DailyUnit[]; // Lodeza EOP + thầu phụ
   subs: DailyUnit[]; // chỉ thầu phụ (mục I)
   todayLines: Map<string, string[]>; // key đơn vị -> dòng "- …" (tự động + ghi thêm)
   tomorrowLines: Map<string, string[]>;
@@ -318,7 +318,7 @@ export function bdhTitle(project: PcProject): string {
     : `BAN ĐIỀU HÀNH DỰ ÁN ${n}`.toUpperCase();
 }
 
-export const COMPANY_NAME = "CÔNG TY CỔ PHẦN XÂY DỰNG VÀ LẮP MÁY TRUNG NAM";
+export const COMPANY_NAME = "Lodeza EOP";
 
 // ─── XUẤT EXCEL THEO MẪU ───
 // Bố cục cột: A = nhãn, B.. = K cột đơn vị (K chẵn, tối thiểu 8 như mẫu).
@@ -488,7 +488,7 @@ export async function exportDailyReportXlsx(m: DailyModel): Promise<void> {
     c += nom;
   }
   if (non) {
-    put(r, c, r, c + non - 1, "THẦU PHỤ TNEC", { bold: true, h: "center" });
+    put(r, c, r, c + non - 1, "THẦU PHỤ Lodeza EOP", { bold: true, h: "center" });
     c += non;
   }
   if (c <= C) put(r, c, r, C, subs.length ? "" : "Chưa có hợp đồng B-B'", { italic: true, h: "center" });

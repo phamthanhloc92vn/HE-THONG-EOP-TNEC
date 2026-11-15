@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 // CẤU HÌNH CÔNG TY cho SERVER-SIDE (API routes) — đọc bảng
 // `tenant_config` bằng anon key (policy anon_read_brand_config,
 // migration 004 mở thêm email_sender_name/chairman_name/site_url).
-// Fallback về giá trị TNEC nếu DB lỗi. Cache 5 phút — cùng pattern
+// Fallback về giá trị Lodeza EOP nếu DB lỗi. Cache 5 phút — cùng pattern
 // với departmentsServer.ts.
 // ============================================================
 
@@ -19,11 +19,11 @@ export type ServerTenantConfig = {
 };
 
 export const SERVER_TENANT_DEFAULTS: ServerTenantConfig = {
-  company_name: "Trung Nam E&C",
-  company_short: "TNEC",
-  system_title: "PM - HCNS - TNEC",
+  company_name: "Lodeza EOP",
+  company_short: "Lodeza EOP",
+  system_title: "Lodeza EOP",
   system_subtitle: "Hệ thống HCNS",
-  email_sender_name: "Phòng HCNS TNEC",
+  email_sender_name: "Lodeza EOP",
   chairman_name: "Huỳnh Giáp Nhân",
   site_url: "https://nhansutrungnamec.com",
 };

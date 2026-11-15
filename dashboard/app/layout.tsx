@@ -3,14 +3,14 @@ import "./globals.css";
 import AuthWrapper from "@/components/AuthWrapper";
 import PWARegister from "@/components/PWARegister";
 
-const SYSTEM_TITLE = process.env.NEXT_PUBLIC_SYSTEM_TITLE || "Trungnam E&C";
+const SYSTEM_TITLE = process.env.NEXT_PUBLIC_SYSTEM_TITLE || "Lodeza EOP";
 
 // Metadata render lúc build (server) nên không đọc được tenant_config trong DB —
 // khách deploy riêng đặt 2 biến môi trường này (script provisioning sẽ set),
-// thiếu thì fallback giá trị TNEC như cũ.
+// thiếu thì fallback giá trị Lodeza EOP như cũ.
 export const metadata: Metadata = {
   title: SYSTEM_TITLE,
-  description: process.env.NEXT_PUBLIC_SYSTEM_DESCRIPTION || "Phần mềm Quản lý Hành chính Nhân sự - Trung Nam E&C",
+  description: process.env.NEXT_PUBLIC_SYSTEM_DESCRIPTION || "Phần mềm Quản lý Hành chính Nhân sự - Lodeza EOP",
   // PWA: cho phép "Thêm vào MH chính" trên iPhone chạy full màn hình như app.
   applicationName: SYSTEM_TITLE,
   manifest: "/manifest.webmanifest",

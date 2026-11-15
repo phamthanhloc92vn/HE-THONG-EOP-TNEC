@@ -8,7 +8,7 @@ import { supabase } from "./supabase";
 // brand/format từng hardcode rải rác trong code.
 //
 // Nguyên tắc an toàn:
-// - DEFAULTS = đúng giá trị TNEC đang chạy. DB thiếu dòng nào,
+// - DEFAULTS = đúng giá trị Lodeza EOP đang chạy. DB thiếu dòng nào,
 //   hoặc chưa đăng nhập / lỗi mạng -> dùng default, hệ vẫn chạy y cũ.
 // - Cache module-level: mỗi phiên chỉ query 1 lần cho mọi component.
 // ============================================================
@@ -87,15 +87,15 @@ export type TenantConfig = {
 };
 
 export const TENANT_DEFAULTS: TenantConfig = {
-  company_name: "Trung Nam E&C",
-  company_short: "TNEC",
-  system_title: "PM - HCNS - TNEC",
+  company_name: "Lodeza EOP",
+  company_short: "Lodeza EOP",
+  system_title: "Lodeza EOP",
   system_subtitle: "Hệ thống HCNS",
-  login_subtitle: "Hệ thống EOP Trungnam E&C",
-  logo_text: "TN",
+  login_subtitle: "Lodeza EOP",
+  logo_text: "LO",
   logo_url: "", // mặc định rỗng -> giữ nguyên ô 2 chữ cái
-  contract_no_suffix: "TNE&C",
-  email_sender_name: "Phòng HCNS TNEC",
+  contract_no_suffix: "Lodeza EOP",
+  email_sender_name: "Lodeza EOP",
   chairman_name: "Huỳnh Giáp Nhân",
   site_url: "https://nhansutrungnamec.com",
   hcns_head_name: "Lê Thị Hoa Đào",

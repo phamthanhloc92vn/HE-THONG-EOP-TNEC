@@ -173,7 +173,7 @@ export default function SigningFormModal({
   // "Thời gian thanh toán". Cần phân biệt thì dùng `laTamUng`.
   const laTamUng = loai === "tam_ung";
   const laChuyenTien = loai === "chuyen_tien" || laTamUng;
-  // Tờ trình (TTr/TNE&C, migration 088): xin CHỦ TRƯƠNG, không phải xin tiền.
+  // Tờ trình (TTr/Lodeza EOP, migration 088): xin CHỦ TRƯƠNG, không phải xin tiền.
   // Bộ ô của nó là Căn cứ → Nội dung đề nghị → Chi phí dự kiến → Kiến nghị;
   // không hợp đồng, không đợt, không tài khoản nhận.
   const laToTrinh = loai === "to_trinh";
@@ -726,7 +726,7 @@ export default function SigningFormModal({
         return;
       }
       // Tờ trình đi chung route /api/export-signing-form (mẫu thứ ba của route
-      // đó), khác phiếu chuyển tiền — tờ TTr/TNE&C là mẫu riêng của module này,
+      // đó), khác phiếu chuyển tiền — tờ TTr/Lodeza EOP là mẫu riêng của module này,
       // không dùng chung với Hành chính.
       if (laToTrinh) {
         await downloadSigningForm(
@@ -1030,13 +1030,13 @@ export default function SigningFormModal({
                 </select>
               </label>
               {/* Số hiệu tờ trình do văn thư cấp SAU khi ký, nên để trống là
-                  bình thường — tờ in ra sẽ có sẵn khung "………/26/TTr/TNE&C" để
+                  bình thường — tờ in ra sẽ có sẵn khung "………/26/TTr/Lodeza EOP" để
                   điền tay. */}
               {laToTrinh && (
                 <label className="flex flex-col gap-1.5">
                   <span className={labelCls}>Số tờ trình</span>
                   <input value={d.so_to_trinh || ""} onChange={(e) => set("so_to_trinh", e.target.value)}
-                    placeholder="012/026/TTr/TNE&C — để trống nếu chưa cấp số"
+                    placeholder="012/026/TTr/Lodeza EOP — để trống nếu chưa cấp số"
                     className={`${inputCls} font-mono`} />
                 </label>
               )}
@@ -1075,7 +1075,7 @@ export default function SigningFormModal({
                   <textarea value={d.noi_dung_trinh || ""} onChange={(e) => set("noi_dung_trinh", e.target.value)}
                     rows={laPhieuYeuCau ? 2 : 4}
                     placeholder={laPhieuYeuCau
-                      ? "Yêu cầu làm bảng hiệu logo TNE&C mới cho dự án Cầu Phước An"
+                      ? "Yêu cầu làm bảng hiệu logo Lodeza EOP mới cho dự án Cầu Phước An"
                       : "Kính đề nghị Ban Giám đốc phê duyệt… (Enter để xuống dòng)"}
                     className={`${inputCls} resize-y leading-relaxed`} />
                 ) : (
@@ -1090,7 +1090,7 @@ export default function SigningFormModal({
                   · ĐƠN ĐẶT HÀNG: đây là các CẤP DUYỆT THẬT trên tờ KD/BM/001
                     (Phòng QLDA rồi PGĐ QLDA), không phải tham vấn — nên đổi nhãn
                     và bỏ ô KHĐT, tờ đó không có ô ký nào cho KHĐT.
-                  · TỜ TRÌNH không có khối này: TTr/TNE&C chỉ in 3 ô ký, luồng cố
+                  · TỜ TRÌNH không có khối này: TTr/Lodeza EOP chỉ in 3 ô ký, luồng cố
                     định 2 cấp; cho tích thêm là phiếu đi qua cấp không có chỗ ký. */}
               {!laToTrinh && (
               <div className="flex flex-col gap-1.5 md:col-span-3">
@@ -1146,7 +1146,7 @@ export default function SigningFormModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {/* Chủ đầu tư chỉ có trên phiếu hồ sơ/văn bản. Phiếu hợp đồng nói
                   vai bằng ô "Bên A / Bên B" bên dưới, vì tuỳ loại hợp đồng mà
-                  chủ đầu tư đứng vai A hay Trung Nam đứng vai A. */}
+                  chủ đầu tư đứng vai A hay Lodeza EOP đứng vai A. */}
               {!laHopDong && (
                 <div className="flex flex-col gap-1.5 md:col-span-2">
                   <span className={labelCls}>
@@ -1573,8 +1573,8 @@ export default function SigningFormModal({
             <section className="space-y-3">
               <h5 className={labelCls}>4. Chủ thể &amp; giá trị hợp đồng</h5>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {/* KHÔNG mặc định Trung Nam vào ô nào: hợp đồng A-B thì Bên A là
-                    chủ đầu tư, hợp đồng B-B′ thì Bên A mới là Trung Nam. */}
+                {/* KHÔNG mặc định Lodeza EOP vào ô nào: hợp đồng A-B thì Bên A là
+                    chủ đầu tư, hợp đồng B-B′ thì Bên A mới là Lodeza EOP. */}
                 <label className="flex flex-col gap-1.5">
                   <span className={labelCls}>Bên A</span>
                   <input value={d.ben_a || ""} onChange={(e) => set("ben_a", e.target.value)}

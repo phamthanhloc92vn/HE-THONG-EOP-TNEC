@@ -1,6 +1,6 @@
 # Chính sách bảo mật thông tin
 
-Áp dụng cho phần mềm quản trị nội bộ của Công ty Cổ phần Xây dựng và lắp máy Trung Nam. Phiên bản 1.0, hiệu lực từ 01/11/2026.
+Áp dụng cho phần mềm quản trị nội bộ của Lodeza EOP. Phiên bản 1.0, hiệu lực từ 01/11/2026.
 
 Trang này cho biết phần mềm lưu những dữ liệu nào về bạn, dùng vào việc gì, ai xem được và bạn có những quyền gì. Căn cứ: Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân.
 

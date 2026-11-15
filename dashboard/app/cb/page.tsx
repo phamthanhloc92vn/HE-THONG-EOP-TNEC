@@ -1830,7 +1830,7 @@ export default function CBPage() {
     const thinBorder = { top: { style: "thin" as const }, bottom: { style: "thin" as const }, left: { style: "thin" as const }, right: { style: "thin" as const } };
 
     sheet.mergeCells(1, 1, 1, totalCols);
-    sheet.getCell(1, 1).value = "CÔNG TY CP XÂY DỰNG VÀ LẮP MÁY TRUNG NAM";
+    sheet.getCell(1, 1).value = "Lodeza EOP";
     sheet.getCell(1, 1).font = { bold: true, size: 12 };
     sheet.getCell(1, 1).alignment = { horizontal: "center" };
 
@@ -3950,7 +3950,7 @@ export default function CBPage() {
 
           // (3) Đã ký chính thức + có Số HĐTV + chưa có Số HĐLĐ thật
           //     -> tự sinh Số HĐLĐ từ Số HĐTV, chỉ đổi ký hiệu HĐTV thành HĐLĐ
-          //     (VD: 006335/2026/HĐTV/TNE&C -> 006335/2026/HĐLĐ/TNE&C)
+          //     (VD: 006335/2026/HĐTV/Lodeza EOP -> 006335/2026/HĐLĐ/Lodeza EOP)
           const hasRealContractNumber = !!c.contract_number && !c.contract_number.startsWith("IMPORT-");
           const probationNo = (c.probation_contract_number || "").trim();
           if (hasOfficialDates && !hasRealContractNumber && /HĐTV|HDTV/.test(probationNo)) {
@@ -9794,7 +9794,7 @@ export default function CBPage() {
                             <span className="text-[7px] font-bold text-slate-500 leading-none mt-1">E&C</span>
                           </div>
                           <div>
-                            <div className="font-extrabold text-[10px] uppercase text-[#005BAC] tracking-wide">Công ty CP Xây dựng và Lắp máy Trung Nam</div>
+                            <div className="font-extrabold text-[10px] uppercase text-[#005BAC] tracking-wide">Lodeza EOP</div>
                             <div className="text-[8px] text-slate-600 mt-1 leading-normal">
                               A: Tầng trệt tòa nhà văn phòng Safomec, 7/1 Thành Thái, P14, Q10, TPHCM<br/>
                               T: (+84) 834 70 75 79 | E: info.tnec@trungnamgroup.com.vn<br/>
