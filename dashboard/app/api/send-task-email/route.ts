@@ -1,6 +1,7 @@
 import { requireApiAuth } from "@/lib/apiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { htmlToText } from "@/lib/mailText";
 import { getTenantConfigServer } from "@/lib/tenantConfigServer";
 
 // Email báo NHÂN VIÊN ĐƯỢC GIAO VIỆC MỚI.
@@ -134,8 +135,8 @@ export async function POST(request: NextRequest) {
     await transporter.sendMail({
       from: `"${cfg.email_sender_name}" <${smtpUser}>`,
       to: recipient,
-      subject: `📌 Công việc mới: ${task.title}${task.due_date ? ` (hạn ${fmtDate(task.due_date)})` : ""}`,
-      html,
+      subject: `Công việc mới: ${task.title}${task.due_date ? ` (hạn ${fmtDate(task.due_date)})` : ""}`,
+      html, text: htmlToText(html),
     });
 
     return NextResponse.json({ success: true, message: `Đã gửi email giao việc tới ${assigneeName} (${recipient})` });

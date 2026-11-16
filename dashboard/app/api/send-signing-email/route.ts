@@ -1,6 +1,7 @@
 import { requireApiAuth } from "@/lib/apiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { htmlToText } from "@/lib/mailText";
 import { getTenantConfigServer } from "@/lib/tenantConfigServer";
 
 // ============================================================
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest) {
           from: `"${cfg.company_name}" <${user}>`,
           to: list.join(","),
           subject,
-          html,
+          html, text: htmlToText(html),
         });
         sent.push(...list);
       } catch (e) {

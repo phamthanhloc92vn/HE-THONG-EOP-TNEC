@@ -1,6 +1,7 @@
 import { requireApiAuth } from "@/lib/apiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { htmlToText } from "@/lib/mailText";
 import * as XLSX from "xlsx";
 import { getTenantConfigServer } from "@/lib/tenantConfigServer";
 
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest) {
       from: `"${cfg.email_sender_name}" <${smtpConfig.user}>`,
       to: recipient.email,
       subject: `Bảng đối soát chi tiết chấm công - Tháng ${month} - ${recipient.name}`,
-      html: mailHtmlContent,
+      html: mailHtmlContent, text: htmlToText(mailHtmlContent),
       attachments: [
         {
           filename: `Bang_cong_chi_tiet_${safeMonthStr}_${recipient.employeeCode}.xlsx`,

@@ -1,6 +1,7 @@
 import { requireApiAuth } from "@/lib/apiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { htmlToText } from "@/lib/mailText";
 import { getTenantConfigServer } from "@/lib/tenantConfigServer";
 
 // Email báo "BẠN ĐƯỢC GIAO THEO DÕI TIẾP một công việc" — gửi khi có người được
@@ -155,8 +156,8 @@ export async function POST(request: NextRequest) {
     await transporter.sendMail({
       from: `"${cfg.email_sender_name}" <${smtpUser}>`,
       to: recipient,
-      subject: `🔄 Theo dõi tiếp: ${taskTitle}${nextDueDate ? ` (hạn ${fmtDate(nextDueDate)})` : ""}`,
-      html,
+      subject: `Theo dõi tiếp: ${taskTitle}${nextDueDate ? ` (hạn ${fmtDate(nextDueDate)})` : ""}`,
+      html, text: htmlToText(html),
     });
 
     return NextResponse.json({ success: true, message: `Đã gửi email theo dõi tới ${taggedName} (${recipient})` });

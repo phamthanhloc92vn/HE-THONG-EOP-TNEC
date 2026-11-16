@@ -1,6 +1,7 @@
 import { requireApiAuth, supabaseForCaller } from "@/lib/apiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { htmlToText } from "@/lib/mailText";
 import { getTenantConfigServer } from "@/lib/tenantConfigServer";
 
 // Gửi phiếu lương PDF (đã khoá mật khẩu 6 số cuối CCCD ở trình duyệt) cho 1 nhân viên.
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
       from: `"${cfg.email_sender_name}" <${smtpConfig.user}>`,
       to: recipient.email,
       subject: `Phiếu lương tháng ${month} - ${recipient.name}`,
-      html,
+      html, text: htmlToText(html),
       attachments: [{
         filename: `Phieu_luong_${month.replace("/", "_")}_${recipient.employeeCode || "NV"}.pdf`,
         content: Buffer.from(pdfBase64, "base64"),

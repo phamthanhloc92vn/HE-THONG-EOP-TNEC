@@ -1,6 +1,7 @@
 import { requireApiAuth } from "@/lib/apiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { htmlToText } from "@/lib/mailText";
 import { getTenantConfigServer } from "@/lib/tenantConfigServer";
 
 // Chia sẻ một bài Tin tức cho đồng nghiệp qua email (nút "Gửi cho đồng nghiệp"
@@ -182,8 +183,8 @@ export async function POST(request: NextRequest) {
         await transporter.sendMail({
           from: `"${cfg.email_sender_name}" <${smtpUser}>`,
           to: t.to,
-          subject: `📰 ${categoryLabel}: ${post.title}`,
-          html: buildHtml(t.name),
+          subject: `${categoryLabel}: ${post.title}`,
+          html: buildHtml(t.name), text: htmlToText(buildHtml(t.name)),
         });
         sent.push(`${t.name} (${t.to})`);
       } catch (err: unknown) {

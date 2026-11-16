@@ -1,6 +1,7 @@
 import { requireApiAuth } from "@/lib/apiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { htmlToText } from "@/lib/mailText";
 import { getTenantConfigServer } from "@/lib/tenantConfigServer";
 
 // Email của module Đăng ký xe / phòng họp. Hai chế độ:
@@ -191,8 +192,8 @@ export async function POST(request: NextRequest) {
       await transporter.sendMail({
         from: `"${cfg.email_sender_name}" <${smtpUser}>`,
         to: uniqueRecipients,
-        subject: `🔔 Chờ duyệt: ${typeLabel} ${booking.resource_name} - ${booking.requester_name || ""} (${dateStr2})`,
-        html: notifyHtml,
+        subject: `Chờ duyệt: ${typeLabel} ${booking.resource_name} - ${booking.requester_name || ""} (${dateStr2})`,
+        html: notifyHtml, text: htmlToText(notifyHtml),
       });
 
       return NextResponse.json({ success: true, message: `Đã gửi email thông báo chờ duyệt tới: ${uniqueRecipients}` });
@@ -348,8 +349,8 @@ export async function POST(request: NextRequest) {
     await transporter.sendMail({
       from: `"${cfg.email_sender_name}" <${smtpUser}>`,
       to: booking.requester_email,
-      subject: `${isApproved ? "✅ Đã duyệt" : isRescheduled ? "🕒 Đã đổi thời gian" : isTrimmed ? "✂️ Đã điều chỉnh lịch" : isDeleted ? "🗑️ Đã xoá lịch" : "❌ Từ chối"} - ${typeLabel} ${booking.resource_name} ngày ${dateStr}`,
-      html: mailHtml,
+      subject: `${isApproved ? "Đã duyệt" : isRescheduled ? "Đã đổi thời gian" : isTrimmed ? "Đã điều chỉnh lịch" : isDeleted ? "Đã xoá lịch" : "Từ chối"} - ${typeLabel} ${booking.resource_name} ngày ${dateStr}`,
+      html: mailHtml, text: htmlToText(mailHtml),
     });
 
     return NextResponse.json({ success: true, message: `Đã gửi email kết quả cho ${booking.requester_name} (${booking.requester_email})` });

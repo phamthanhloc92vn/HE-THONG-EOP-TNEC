@@ -1,6 +1,7 @@
 import { requireApiAuth } from "@/lib/apiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { htmlToText } from "@/lib/mailText";
 import { getTenantConfigServer } from "@/lib/tenantConfigServer";
 
 // Email cho đơn Nghỉ phép / Công tác (bảng `tasks`, luồng duyệt 2 cấp: Trưởng phòng/Tổ
@@ -197,8 +198,8 @@ export async function POST(request: NextRequest) {
       await transporter.sendMail({
         from: `"${cfg.email_sender_name}" <${smtpUser}>`,
         to: uniqueRecipients,
-        subject: `🔔 Chờ duyệt: ${typeLabel} - ${task.assignee || ""}`,
-        html: notifyHtml,
+        subject: `Chờ duyệt: ${typeLabel} - ${task.assignee || ""}`,
+        html: notifyHtml, text: htmlToText(notifyHtml),
       });
 
       return NextResponse.json({ success: true, message: `Đã gửi email thông báo chờ duyệt tới: ${uniqueRecipients}` });
@@ -294,8 +295,8 @@ export async function POST(request: NextRequest) {
     await transporter.sendMail({
       from: `"${cfg.email_sender_name}" <${smtpUser}>`,
       to: requesterEmail,
-      subject: `${isApproved ? "✅ Đã duyệt" : "❌ Từ chối"} - ${typeLabel} - ${task.assignee || ""}`,
-      html: mailHtml,
+      subject: `${isApproved ? "Đã duyệt" : "Từ chối"} - ${typeLabel} - ${task.assignee || ""}`,
+      html: mailHtml, text: htmlToText(mailHtml),
     });
 
     return NextResponse.json({ success: true, message: `Đã gửi email kết quả cho ${task.assignee} (${requesterEmail})` });

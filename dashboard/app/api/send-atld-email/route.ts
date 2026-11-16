@@ -1,6 +1,7 @@
 import { requireApiAuth } from "@/lib/apiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { htmlToText } from "@/lib/mailText";
 import { getTenantConfigServer } from "@/lib/tenantConfigServer";
 
 // ============================================================
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
       const list = Array.from(new Set(to.filter((x) => x && x.includes("@"))));
       if (list.length === 0) return;
       try {
-        await transporter.sendMail({ from: `"${cfg.company_name}" <${user}>`, to: list.join(","), subject, html });
+        await transporter.sendMail({ from: `"${cfg.company_name}" <${user}>`, to: list.join(","), subject, html, text: htmlToText(html) });
         sent.push(...list);
       } catch (e) {
         failed.push(`${list.join(",")}: ${e instanceof Error ? e.message : String(e)}`);
