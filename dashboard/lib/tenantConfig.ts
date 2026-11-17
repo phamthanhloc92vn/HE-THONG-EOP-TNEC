@@ -93,7 +93,7 @@ export const TENANT_DEFAULTS: TenantConfig = {
   system_subtitle: "Hệ thống HCNS",
   login_subtitle: "Lodeza EOP",
   logo_text: "LO",
-  logo_url: "", // mặc định rỗng -> giữ nguyên ô 2 chữ cái
+  logo_url: "/lodeza-bieu-tuong-1024.png",
   contract_no_suffix: "Lodeza EOP",
   email_sender_name: "Lodeza EOP",
   chairman_name: "Huỳnh Giáp Nhân",
