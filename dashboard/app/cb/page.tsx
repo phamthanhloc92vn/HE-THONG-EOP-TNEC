@@ -4607,6 +4607,65 @@ export default function CBPage() {
     return tempContracts.filter(c => normalizeText(c.employee_name || c.employees?.name || "") === normalizeText(currentUser?.name || ""));
   }, [tempContracts, hasFullAccess, currentUser]);
 
+  // Tải danh sách HĐLĐ ra Excel — theo bộ lọc Phòng ban / Ban điều hành (giống bảng), không lọc = toàn bộ
+  const getContractsByDeptFilter = () => {
+    const filter = (contractsDeptFilter || contractsProjectFilter).toLowerCase();
+    return myVisibleContracts.filter(c => !filter || (c.department || c.employees?.department || "").toLowerCase().includes(filter));
+  };
+
+  const handleDownloadContractsExcel = () => {
+    if (!currentUser?.isAdmin) return;
+    const rows = getContractsByDeptFilter()
+      .filter(c => !c.id.startsWith("new-"))
+      .map((c, i) => ({
+        "STT": i + 1,
+        "Mã NV": c.employee_code || "",
+        "Họ và tên": c.employee_name || "",
+        "Phòng ban": c.department || c.employees?.department || "",
+        "HĐTV từ": c.probation_start_date || "",
+        "HĐTV đến": c.probation_end_date || "",
+        "Số HĐTV": c.probation_contract_number || "",
+        "Loại HĐLĐ": c.type || "",
+        "HĐLĐ từ": c.sign_date || "",
+        "HĐLĐ đến": c.expiration_date || "",
+        "Số HĐLĐ": c.contract_number || "",
+        "Lương BHXH": c.base_salary_insurance ?? "",
+        "Thưởng HQCV": c.performance_bonus ?? "",
+        "Phụ cấp": c.allowances ?? "",
+        "Tổng thu nhập": c.total_income ?? "",
+        "Ghi chú": c.notes || "",
+      }));
+    if (rows.length === 0) { alert("Không có hợp đồng nào để tải."); return; }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "HDLD");
+    const suffix = contractsDeptFilter || contractsProjectFilter || "Toan_bo";
+    XLSX.writeFile(wb, `Danh_sach_HDLD_${suffix.replace(/[\\/:*?"<>|\s]+/g, "_")}.xlsx`);
+  };
+
+  // Xoá tất cả HĐ — chỉ Admin. Có lọc phòng ban / BĐH thì xoá theo bộ lọc, không lọc = xoá hết
+  const handleDeleteAllContracts = async () => {
+    if (!currentUser?.isAdmin) return;
+    const targets = getContractsByDeptFilter();
+    if (targets.length === 0) { alert("Không có hợp đồng nào để xoá."); return; }
+    const scope = contractsDeptFilter || contractsProjectFilter;
+    if (!(await askConfirm(`Xoá ${targets.length} hợp đồng ${scope ? `của "${scope}"` : "(TOÀN BỘ danh sách)"}? Dữ liệu sẽ bị xoá khỏi hệ thống và không thể khôi phục.`))) return;
+    const ids = targets.map(c => c.id);
+    const dbIds = ids.filter(id => !id.startsWith("new-"));
+    try {
+      for (let i = 0; i < dbIds.length; i += 100) {
+        const { error } = await supabase.from("contracts").delete().in("id", dbIds.slice(i, i + 100));
+        if (error) throw error;
+      }
+      setTempContracts(prev => prev.filter(c => !ids.includes(c.id)));
+      setContracts(prev => prev.filter(c => !ids.includes(c.id)));
+      alert(`Đã xoá ${ids.length} hợp đồng.`);
+    } catch (err: any) {
+      console.error("Lỗi khi xoá tất cả hợp đồng:", err);
+      alert("Lỗi xoá hợp đồng: " + err.message);
+      fetchContracts();
+    }
+  };
+
   const parseBirthdate = (dateStr: string) => {
     if (!dateStr) return null;
     
@@ -8625,13 +8684,6 @@ export default function CBPage() {
                   </label>
 
                   <button
-                    onClick={openAiSettings}
-                    className="flex items-center gap-1.5 px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-650 bg-white rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95"
-                  >
-                    <Settings size={14} /> Cấu hình AI
-                  </button>
-
-                  <button
                     onClick={handleAddBlankContractRow}
                     className="flex items-center gap-1.5 px-4 py-2.5 bg-[#005BAC] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-premium active:scale-95"
                   >
@@ -8656,17 +8708,35 @@ export default function CBPage() {
                     {syncingProbation ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                     Đồng bộ HĐTV (Excel)
                   </button>
+
+                  {currentUser?.isAdmin && (
+                    <>
+                  <button
+                    onClick={handleDownloadContractsExcel}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-premium active:scale-95"
+                    title="Tải Excel theo phòng ban / Ban điều hành đang lọc (không lọc = toàn bộ)"
+                  >
+                    <Download size={14} /> Tải danh sách HĐLĐ
+                  </button>
+
+                  <button
+                    onClick={handleDeleteAllContracts}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-premium active:scale-95"
+                    title="Xoá hợp đồng theo phòng ban / Ban điều hành đang lọc (không lọc = xoá hết)"
+                  >
+                    <Trash2 size={14} /> Xóa tất cả
+                  </button>
                     </>
                   )}
 
                   <button
-                    onClick={() => fetchContracts()}
-                    disabled={loadingContracts}
-                    className="p-2.5 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl transition-all cursor-pointer active:scale-95"
-                    title="Đồng bộ lại"
+                    onClick={openAiSettings}
+                    className="flex items-center gap-1.5 px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-650 bg-white rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95"
                   >
-                    <RefreshCw size={14} className={loadingContracts ? "animate-spin" : ""} />
+                    <Settings size={14} /> Cấu hình AI
                   </button>
+                    </>
+                  )}
                 </div>
               </div>
 
