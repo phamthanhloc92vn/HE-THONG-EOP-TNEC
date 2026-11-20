@@ -4,9 +4,12 @@
 // Thưởng KPI được tab "Tính lương" dùng THAY cho Thưởng HQCV. Công thức: lib/payroll.ts.
 import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { computeKpiBonus, KpiConfig } from "@/lib/payroll";
+import { computeKpiBonus, KpiConfig, PayrollSettings } from "@/lib/payroll";
 import { usePayrollKpi } from "./usePayrollKpi";
-import { ContractLite, TimesheetRow, mergeDepartments, pickContract, plain, vnd } from "./PayrollCalcTab";
+import {
+  ContractLite, EmployeeLite, TimesheetRow, buildLine, mergeDepartments, pickContract, plain, vnd,
+  PayslipMailButton, PayslipPreview, PayslipSendAllButton, toView, usePayslipManual, usePayslipSender,
+} from "./PayrollCalcTab";
 
 const LEVEL_STYLE: Record<string, string> = {
   "Vượt": "bg-emerald-100 text-emerald-700",
@@ -15,13 +18,21 @@ const LEVEL_STYLE: Record<string, string> = {
 };
 const toNum = (v: string) => Number(v.replace(/\D/g, "")) || 0;
 
-export default function PayrollKpiTab({ month, rows, contracts, departments, notify }: {
+export default function PayrollKpiTab({ month, rows, contracts, departments, employees, levelOf, settings, smtpConfig, onNeedSmtp, notify, askConfirm }: {
   month: string; rows: TimesheetRow[]; contracts: ContractLite[]; departments: string[];
+  // Phiếu lương xem/gửi ở đây giống hệt tab Tính lương (lấy số KPI đang nhập trên màn hình)
+  employees: EmployeeLite[]; levelOf: (role: string) => string; settings: PayrollSettings;
+  smtpConfig: { user: string; pass: string }; onNeedSmtp: () => void;
   notify: (msg: string, type?: "success" | "error") => void;
+  askConfirm: (msg: string) => Promise<boolean>;
 }) {
   const { config, setConfig, entries, setEntries } = usePayrollKpi(month);
   const [search, setSearch] = useState("");
+  const [dept, setDept] = useState("");
   const [saving, setSaving] = useState(false);
+  const [previewCode, setPreviewCode] = useState<string | null>(null);
+  const { manual } = usePayslipManual(month);
+  const sender = usePayslipSender({ month, settings, smtpConfig, onNeedSmtp, notify, askConfirm });
 
   const deptOptions = useMemo(
     () => mergeDepartments(departments, [...rows.map(r => r.department || "Chưa xếp phòng"), ...config.departments]),
@@ -33,9 +44,11 @@ export default function PayrollKpiTab({ month, rows, contracts, departments, not
     .map(r => {
       const base = pickContract(contracts, r.employeeCode, r.name)?.base_salary_insurance || 0;
       const e = entries[r.employeeCode] || { target: 0, actual: 0 };
-      return { row: r, base, ...e, kpi: base && e.target ? computeKpiBonus(base, e.target, e.actual, config) : null };
-    }), [rows, contracts, entries, config]);
-  const visible = lines.filter(l => !search.trim() || plain(l.row.name).includes(plain(search.trim())));
+      const slip = buildLine(r, { contracts, employees, levelOf, settings, manual, kpiConfig: config, kpiEntries: entries });
+      return { row: r, base, ...e, kpi: base && e.target ? computeKpiBonus(base, e.target, e.actual, config) : null, slip };
+    }), [rows, contracts, entries, config, employees, levelOf, settings, manual]);
+  const visible = lines.filter(l => (!dept || (l.row.department || "Chưa xếp phòng") === dept) && (!search.trim() || plain(l.row.name).includes(plain(search.trim()))));
+  const visibleSlips = visible.map(l => l.slip).filter(s => s.slip);
   const total = visible.reduce((s, l) => s + (l.kpi?.total || 0), 0);
   const totalIncome = visible.reduce((s, l) => s + (l.kpi ? l.base + l.kpi.total : 0), 0);
 
@@ -91,6 +104,11 @@ export default function PayrollKpiTab({ month, rows, contracts, departments, not
           <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm họ và tên..."
               className="border border-slate-200 rounded-lg px-3 py-1.5 bg-white w-52 font-semibold" />
+            <select value={dept} onChange={e => setDept(e.target.value)} className="border border-slate-200 rounded-lg px-2 py-1.5 bg-white">
+              <option value="">Tất cả phòng KPI</option>
+              {config.departments.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <PayslipSendAllButton list={visibleSlips} sender={sender} />
             <button onClick={saveEntries} disabled={saving || lines.length === 0}
               className="px-3 py-1.5 rounded-lg bg-[#005BAC] text-white hover:bg-[#004a8c] disabled:opacity-40 cursor-pointer">
               {saving ? "Đang lưu..." : "Lưu KPI tháng"}
@@ -113,18 +131,23 @@ export default function PayrollKpiTab({ month, rows, contracts, departments, not
                   <th className={th + " text-right"}>Thưởng vượt DS</th>
                   <th className={th + " text-right"}>Tổng thưởng KPI</th>
                   <th className={th + " text-right"} title="Lương CB (HĐ) + Tổng thưởng KPI — số thực nhận theo ngày công, phụ cấp, BH, thuế xem ở tab Tính lương">Tổng thu nhập</th>
+                  <th className={th}></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                 {visible.map(l => (
                   <tr key={l.row.employeeCode || l.row.name} className="hover:bg-slate-50/50">
                     <td className="py-2.5 px-2 whitespace-nowrap">
-                      <div className="font-bold text-slate-800">{l.row.name}</div>
+                      {l.slip.slip ? (
+                        <button onClick={() => setPreviewCode(l.row.employeeCode)} title="Xem nhanh phiếu lương" className="font-bold text-slate-800 hover:text-[#005BAC] hover:underline cursor-pointer text-left">{l.row.name}</button>
+                      ) : (
+                        <div className="font-bold text-slate-800">{l.row.name}</div>
+                      )}
                       <div className="text-[10px] text-slate-400">{l.row.department}</div>
                     </td>
                     <td className={td}>{l.base ? vnd(l.base) : <span className="text-amber-600 text-[10px]">Chưa có trong HĐ</span>}</td>
                     {(["target", "actual"] as const).map(k => (
-                      <td key={k} className="py-1.5 px-1">
+                      <td key={k} className="py-1.5 px-2 text-right">
                         <input value={l[k] ? vnd(l[k]) : ""} onChange={e => setEntry(l.row.employeeCode, k, e.target.value)} placeholder="0"
                           className="w-32 text-right border border-slate-200 rounded px-1.5 py-1 bg-white" />
                       </td>
@@ -136,6 +159,9 @@ export default function PayrollKpiTab({ month, rows, contracts, departments, not
                     <td className={td}>{l.kpi?.overBonus ? vnd(l.kpi.overBonus) : l.kpi ? "-" : ""}</td>
                     <td className={td + " text-emerald-600 font-black"}>{l.kpi ? vnd(l.kpi.total) : ""}</td>
                     <td className={td + " text-slate-800 font-black"}>{l.kpi ? vnd(l.base + l.kpi.total) : ""}</td>
+                    <td className="py-2.5 px-2 whitespace-nowrap text-[10px] font-bold">
+                      {l.slip.slip && <PayslipMailButton l={l.slip} sender={sender} />}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -144,11 +170,16 @@ export default function PayrollKpiTab({ month, rows, contracts, departments, not
                   <td className="py-3 px-2" colSpan={7}>Tổng thưởng KPI ({visible.length} người)</td>
                   <td className={td + " text-emerald-600"}>{vnd(total)}</td>
                   <td className={td}>{vnd(totalIncome)}</td>
+                  <td></td>
                 </tr>
               </tfoot>
             </table>
           </div>
         )}
+        {(() => {
+          const s = previewCode ? lines.find(x => x.row.employeeCode === previewCode)?.slip : undefined;
+          return s?.slip ? <PayslipPreview view={toView(s, month, settings)} onClose={() => setPreviewCode(null)} onPdf={() => sender.downloadPdf(s)} /> : null;
+        })()}
       </div>
 
       <div className="glass bg-white rounded-2xl p-5 border border-slate-200/50 shadow-premium space-y-4 text-xs">

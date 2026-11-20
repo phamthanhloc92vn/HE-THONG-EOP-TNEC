@@ -6,8 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import ExcelJS from "exceljs";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/apiClient";
-import { allowanceTier, computeAllowances, computeKpiBonus, computePayslip, KpiLevel, Payslip, PayslipInput, PayrollSettings } from "@/lib/payroll";
-import { usePayrollKpi } from "./usePayrollKpi";
+import { allowanceTier, computeAllowances, computeKpiBonus, computePayslip, KpiConfig, KpiLevel, Payslip, PayslipInput, PayrollSettings } from "@/lib/payroll";
+import { KpiEntry, usePayrollKpi } from "./usePayrollKpi";
 import { payslipRows, payslipPdfDoc, payslipPassword, PayslipView } from "@/lib/payslip";
 
 export type TimesheetRow = { employeeCode: string; name: string; department: string; days: string[]; vanPhong: number; tongNgayCong: number };
@@ -17,8 +17,8 @@ export type ContractLite = {
   employees?: { name: string; role?: string };
 };
 type Manual = Pick<PayslipInput, "otTaxFree" | "otTaxable" | "backPay" | "clawback" | "dependents">;
-type Line = { code: string; name: string; department: string; role: string; contract?: ContractLite; input?: PayslipInput; slip?: Payslip; email: string; cccd: string; kpi?: { level: KpiLevel | null } };
-type EmployeeLite = { employee_code?: string; name: string; email?: string; cccd?: string; role?: string };
+export type Line = { code: string; name: string; department: string; role: string; contract?: ContractLite; input?: PayslipInput; slip?: Payslip; email: string; cccd: string; kpi?: { level: KpiLevel | null } };
+export type EmployeeLite = { employee_code?: string; name: string; email?: string; cccd?: string; role?: string };
 type SendState = { status: "sending" | "success" | "error"; message?: string };
 
 const MANUAL_FIELDS: { key: keyof Manual; label: string }[] = [
@@ -37,7 +37,7 @@ const norm = (s?: string) => (s || "").toString().trim().toLowerCase();
 // Tìm tên không dấu: "loc" khớp "Lộc"
 export const plain = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").toLowerCase();
 
-const toView = (l: Line, month: string, settings: PayrollSettings): PayslipView => ({ name: l.name, role: l.role, department: l.department, month, input: l.input!, slip: l.slip!, kpiLevel: l.kpi?.level ?? undefined, settings });
+export const toView = (l: Line, month: string, settings: PayrollSettings): PayslipView => ({ name: l.name, role: l.role, department: l.department, month, input: l.input!, slip: l.slip!, kpiLevel: l.kpi?.level ?? undefined, settings });
 
 // pdfmake chỉ nạp khi cần (giống MembersTab), font Roboto kèm sẵn đủ dấu tiếng Việt
 async function createPayslipPdf(l: Line, month: string, settings: PayrollSettings) {
@@ -56,6 +56,133 @@ export const pickContract = (contracts: ContractLite[], code: string, name: stri
 
 const holidayDays = (days: string[]) => days.reduce((s, t) => s + (t === "L" ? 1 : t === "L/2" ? 0.5 : 0), 0);
 
+// Một dòng phiếu lương từ bảng công — dùng chung tab Tính lương và Lương theo KPI
+export function buildLine(r: TimesheetRow, c: {
+  contracts: ContractLite[]; employees: EmployeeLite[]; levelOf: (role: string) => string; settings: PayrollSettings;
+  manual: Record<string, Partial<Manual>>; kpiConfig: KpiConfig; kpiEntries: Record<string, KpiEntry>;
+}): Line {
+  const contract = pickContract(c.contracts, r.employeeCode, r.name);
+  const emp = c.employees.find(e => (r.employeeCode && norm(e.employee_code) === norm(r.employeeCode))) || c.employees.find(e => norm(e.name) === norm(r.name));
+  const base = { code: r.employeeCode, name: r.name, department: r.department || "Chưa xếp phòng", role: emp?.role || contract?.employees?.role || "", contract, email: emp?.email || "", cccd: emp?.cccd || "" };
+  if (!contract?.base_salary_insurance) return base;
+  const m = c.manual[r.employeeCode] || {};
+  const input: PayslipInput = {
+    baseSalary: contract.base_salary_insurance, performanceBonus: contract.performance_bonus || 0,
+    workdays: r.tongNgayCong, holidays: holidayDays(r.days),
+    // Cơm theo ngày đi làm thực tế (cột VP, gồm OL); xăng/ĐT cố định theo cấp của chức vụ hiện tại
+    ...computeAllowances(c.settings, allowanceTier(c.levelOf(base.role)), r.vanPhong),
+    dependents: m.dependents ?? contract.dependents ?? 0,
+    otTaxFree: m.otTaxFree || 0, otTaxable: m.otTaxable || 0, backPay: m.backPay || 0, clawback: m.clawback || 0,
+  };
+  // Phòng hưởng KPI: thưởng KPI (tab Lương theo KPI) THAY HQCV; chưa nhập KPI -> 0
+  let kpi: Line["kpi"];
+  if (c.kpiConfig.departments.includes(base.department)) {
+    const e = c.kpiEntries[r.employeeCode];
+    const k = e?.target ? computeKpiBonus(input.baseSalary, e.target, e.actual, c.kpiConfig) : null;
+    input.kpiBonus = k?.total ?? 0;
+    kpi = { level: k?.level ?? null };
+  }
+  return { ...base, input, slip: computePayslip(input, c.settings), kpi };
+}
+
+// Số nhập tay đã chốt của tháng (tăng ca, truy lĩnh, người phụ thuộc...) trong payroll_slips
+export function usePayslipManual(month: string) {
+  const [manual, setManual] = useState<Record<string, Partial<Manual>>>({});
+  const [lockedAt, setLockedAt] = useState<string | null>(null);
+  useEffect(() => {
+    if (!month) return;
+    supabase.from("payroll_slips").select("employee_code, data, updated_at").eq("month", month).then(({ data }) => {
+      const m: Record<string, Partial<Manual>> = {};
+      (data || []).forEach(r => {
+        const i = r.data?.input || {};
+        m[r.employee_code] = { dependents: i.dependents, otTaxFree: i.otTaxFree, otTaxable: i.otTaxable, backPay: i.backPay, clawback: i.clawback };
+      });
+      setManual(m);
+      setLockedAt(data && data.length ? data[0].updated_at : null);
+    });
+  }, [month]);
+  return { manual, setManual, lockedAt, setLockedAt };
+}
+
+// Tải PDF / gửi mail phiếu lương từng người + hàng loạt — dùng chung 2 tab
+export function usePayslipSender({ month, settings, smtpConfig, onNeedSmtp, notify, askConfirm }: {
+  month: string; settings: PayrollSettings; smtpConfig: { user: string; pass: string }; onNeedSmtp: () => void;
+  notify: (msg: string, type?: "success" | "error") => void; askConfirm: (msg: string) => Promise<boolean>;
+}) {
+  const [sendState, setSendState] = useState<Record<string, SendState>>({});
+  const [sendingAll, setSendingAll] = useState(false);
+  const smtpReady = !!(smtpConfig.user && smtpConfig.pass);
+
+  // PDF tải về cũng khoá 6 số cuối CCCD: file có thể bị chuyển tiếp như email
+  const downloadPdf = async (l: Line) => {
+    if (!payslipPassword(l.cccd)) return notify(`${l.name} chưa có số CCCD trong hồ sơ — không tạo được PDF có mật khẩu.`, "error");
+    await (await createPayslipPdf(l, month, settings)).download(`Phieu_luong_${month.replace("/", "_")}_${l.code}.pdf`);
+  };
+
+  const sendOne = async (l: Line) => {
+    setSendState(prev => ({ ...prev, [l.code]: { status: "sending" } }));
+    try {
+      const pdfBase64 = await (await createPayslipPdf(l, month, settings)).getBase64();
+      const res = await apiFetch("/api/send-payslip-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ smtpConfig, month, pdfBase64, recipient: { email: l.email, name: l.name, employeeCode: l.code } }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gửi email thất bại!");
+      setSendState(prev => ({ ...prev, [l.code]: { status: "success" } }));
+    } catch (err) {
+      setSendState(prev => ({ ...prev, [l.code]: { status: "error", message: err instanceof Error ? err.message : String(err) } }));
+    }
+  };
+
+  // Gửi hàng loạt theo bộ lọc đang xem, giống "Gửi tất cả" của bảng công; bỏ qua người đã gửi xong
+  const sendableOf = (list: Line[]) => list.filter(l => l.slip && l.email && payslipPassword(l.cccd) && sendState[l.code]?.status !== "success");
+  const sendAll = async (list: Line[]) => {
+    if (!smtpReady) return onNeedSmtp();
+    const sendable = sendableOf(list);
+    if (sendable.length === 0) return notify("Không còn nhân viên nào đủ điều kiện gửi (cần email + CCCD, chưa gửi).", "error");
+    if (!(await askConfirm(`Gửi phiếu lương tháng ${month} (PDF khoá 6 số cuối CCCD) cho ${sendable.length} nhân viên?`))) return;
+    setSendingAll(true);
+    for (const l of sendable) await sendOne(l);
+    setSendingAll(false);
+    notify("Đã chạy xong gửi phiếu lương hàng loạt — xem trạng thái từng dòng.", "success");
+  };
+
+  return { sendState, sendingAll, smtpReady, onNeedSmtp, downloadPdf, sendOne, sendableOf, sendAll };
+}
+export type PayslipSender = ReturnType<typeof usePayslipSender>;
+
+export function PayslipSendAllButton({ list, sender }: { list: Line[]; sender: PayslipSender }) {
+  const missingInfo = list.filter(l => l.slip && (!l.email || !payslipPassword(l.cccd)));
+  return (
+    <button
+      onClick={() => sender.sendAll(list)}
+      disabled={sender.sendingAll}
+      title={missingInfo.length ? `Thiếu email/CCCD (không gửi được): ${missingInfo.map(l => l.name).join(", ")}` : undefined}
+      className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 cursor-pointer"
+    >
+      {sender.sendingAll ? "Đang gửi..." : `Gửi phiếu lương (${sender.sendableOf(list).length})`}
+    </button>
+  );
+}
+
+export function PayslipMailButton({ l, sender }: { l: Line; sender: PayslipSender }) {
+  const st = sender.sendState[l.code];
+  if (!l.email || !payslipPassword(l.cccd)) return <span className="text-amber-600" title="Cần email và số CCCD trong Hồ sơ nhân viên để gửi">Thiếu {!l.email ? "email" : "CCCD"}</span>;
+  if (st?.status === "sending") return <span className="text-slate-400">Đang gửi...</span>;
+  if (st?.status === "success") return <span className="text-emerald-600">✓ Đã gửi</span>;
+  return (
+    <button
+      onClick={() => (sender.smtpReady ? sender.sendOne(l) : sender.onNeedSmtp())}
+      title={st?.message || `Gửi tới ${l.email}`}
+      className={`${st?.status === "error" ? "text-rose-600" : "text-emerald-600"} hover:underline cursor-pointer`}
+    >
+      {st?.status === "error" ? "Lỗi — gửi lại" : "Gửi mail"}
+    </button>
+  );
+}
+
 
 // Xem nhanh phiếu lương (cùng nội dung với file Excel/PDF — lib/payslip.ts)
 const PREVIEW_ROW: Record<string, string> = {
@@ -70,7 +197,7 @@ const PREVIEW_ROW: Record<string, string> = {
   "": "text-slate-700",
 };
 
-function PayslipPreview({ view, onClose, onPdf }: { view: PayslipView; onClose: () => void; onPdf: () => void }) {
+export function PayslipPreview({ view, onClose, onPdf }: { view: PayslipView; onClose: () => void; onPdf: () => void }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -115,54 +242,18 @@ export default function PayrollCalcTab({ month, rows, contracts, levelOf, employ
   notify: (msg: string, type?: "success" | "error") => void;
   askConfirm: (msg: string) => Promise<boolean>;
 }) {
-  const [sendState, setSendState] = useState<Record<string, SendState>>({});
-  const [sendingAll, setSendingAll] = useState(false);
   const [dept, setDept] = useState("");
   const [search, setSearch] = useState("");
-  const [manual, setManual] = useState<Record<string, Partial<Manual>>>({});
-  const [lockedAt, setLockedAt] = useState<string | null>(null);
+  const { manual, setManual, lockedAt, setLockedAt } = usePayslipManual(month);
   const [saving, setSaving] = useState(false);
   const [previewCode, setPreviewCode] = useState<string | null>(null);
   const { config: kpiConfig, entries: kpiEntries } = usePayrollKpi(month);
+  const sender = usePayslipSender({ month, settings, smtpConfig, onNeedSmtp, notify, askConfirm });
 
-  // Nạp số nhập tay đã chốt của tháng (nếu có)
-  useEffect(() => {
-    if (!month) return;
-    supabase.from("payroll_slips").select("employee_code, data, updated_at").eq("month", month).then(({ data }) => {
-      const m: Record<string, Partial<Manual>> = {};
-      (data || []).forEach(r => {
-        const i = r.data?.input || {};
-        m[r.employee_code] = { dependents: i.dependents, otTaxFree: i.otTaxFree, otTaxable: i.otTaxable, backPay: i.backPay, clawback: i.clawback };
-      });
-      setManual(m);
-      setLockedAt(data && data.length ? data[0].updated_at : null);
-    });
-  }, [month]);
-
-  const lines: Line[] = useMemo(() => rows.map(r => {
-    const contract = pickContract(contracts, r.employeeCode, r.name);
-    const emp = employees.find(e => (r.employeeCode && norm(e.employee_code) === norm(r.employeeCode))) || employees.find(e => norm(e.name) === norm(r.name));
-    const base = { code: r.employeeCode, name: r.name, department: r.department || "Chưa xếp phòng", role: emp?.role || contract?.employees?.role || "", contract, email: emp?.email || "", cccd: emp?.cccd || "" };
-    if (!contract?.base_salary_insurance) return base;
-    const m = manual[r.employeeCode] || {};
-    const input: PayslipInput = {
-      baseSalary: contract.base_salary_insurance, performanceBonus: contract.performance_bonus || 0,
-      workdays: r.tongNgayCong, holidays: holidayDays(r.days),
-      // Cơm theo ngày đi làm thực tế (cột VP, gồm OL); xăng/ĐT cố định theo cấp của chức vụ hiện tại
-      ...computeAllowances(settings, allowanceTier(levelOf(base.role)), r.vanPhong),
-      dependents: m.dependents ?? contract.dependents ?? 0,
-      otTaxFree: m.otTaxFree || 0, otTaxable: m.otTaxable || 0, backPay: m.backPay || 0, clawback: m.clawback || 0,
-    };
-    // Phòng hưởng KPI: thưởng KPI (tab Lương theo KPI) THAY HQCV; chưa nhập KPI -> 0
-    let kpi: Line["kpi"];
-    if (kpiConfig.departments.includes(base.department)) {
-      const e = kpiEntries[r.employeeCode];
-      const k = e?.target ? computeKpiBonus(input.baseSalary, e.target, e.actual, kpiConfig) : null;
-      input.kpiBonus = k?.total ?? 0;
-      kpi = { level: k?.level ?? null };
-    }
-    return { ...base, input, slip: computePayslip(input, settings), kpi };
-  }), [rows, contracts, levelOf, manual, employees, kpiConfig, kpiEntries, settings]);
+  const lines: Line[] = useMemo(
+    () => rows.map(r => buildLine(r, { contracts, employees, levelOf, settings, manual, kpiConfig, kpiEntries })),
+    [rows, contracts, levelOf, manual, employees, kpiConfig, kpiEntries, settings]
+  );
 
   const deptOptions = useMemo(() => mergeDepartments(departments, lines.map(l => l.department)), [departments, lines]);
   const visible = lines.filter(l => (!dept || l.department === dept) && (!search.trim() || plain(l.name).includes(plain(search.trim()))));
@@ -238,42 +329,6 @@ export default function PayrollCalcTab({ month, rows, contracts, levelOf, employ
     URL.revokeObjectURL(a.href);
   };
 
-  // PDF tải về cũng khoá 6 số cuối CCCD: file có thể bị chuyển tiếp như email
-  const downloadPdf = async (l: Line) => {
-    if (!payslipPassword(l.cccd)) return notify(`${l.name} chưa có số CCCD trong hồ sơ — không tạo được PDF có mật khẩu.`, "error");
-    await (await createPayslipPdf(l, month, settings)).download(`Phieu_luong_${month.replace("/", "_")}_${l.code}.pdf`);
-  };
-
-  const sendOne = async (l: Line) => {
-    setSendState(prev => ({ ...prev, [l.code]: { status: "sending" } }));
-    try {
-      const pdfBase64 = await (await createPayslipPdf(l, month, settings)).getBase64();
-      const res = await apiFetch("/api/send-payslip-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ smtpConfig, month, pdfBase64, recipient: { email: l.email, name: l.name, employeeCode: l.code } }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gửi email thất bại!");
-      setSendState(prev => ({ ...prev, [l.code]: { status: "success" } }));
-    } catch (err) {
-      setSendState(prev => ({ ...prev, [l.code]: { status: "error", message: err instanceof Error ? err.message : String(err) } }));
-    }
-  };
-
-  // Gửi hàng loạt theo bộ lọc đang xem, giống "Gửi tất cả" của bảng công; bỏ qua người đã gửi xong
-  const sendable = payable.filter(l => l.email && payslipPassword(l.cccd) && sendState[l.code]?.status !== "success");
-  const missingInfo = payable.filter(l => !l.email || !payslipPassword(l.cccd));
-  const handleSendAll = async () => {
-    if (!smtpConfig.user || !smtpConfig.pass) return onNeedSmtp();
-    if (sendable.length === 0) return notify("Không còn nhân viên nào đủ điều kiện gửi (cần email + CCCD, chưa gửi).", "error");
-    if (!(await askConfirm(`Gửi phiếu lương tháng ${month} (PDF khoá 6 số cuối CCCD) cho ${sendable.length} nhân viên?`))) return;
-    setSendingAll(true);
-    for (const l of sendable) await sendOne(l);
-    setSendingAll(false);
-    notify("Đã chạy xong gửi phiếu lương hàng loạt — xem trạng thái từng dòng.", "success");
-  };
-
   if (!month || rows.length === 0) {
     return (
       <div className="glass bg-white rounded-2xl p-8 border border-slate-200/50 shadow-premium text-center text-xs font-semibold text-slate-500">
@@ -302,14 +357,7 @@ export default function PayrollCalcTab({ month, rows, contracts, levelOf, employ
           <button onClick={() => exportSlips(payable)} disabled={payable.length === 0} className="px-3 py-1.5 rounded-lg border border-[#005BAC] text-[#005BAC] hover:bg-blue-50 disabled:opacity-40 cursor-pointer">
             Xuất Excel ({payable.length})
           </button>
-          <button
-            onClick={handleSendAll}
-            disabled={sendingAll}
-            title={missingInfo.length ? `Thiếu email/CCCD (không gửi được): ${missingInfo.map(l => l.name).join(", ")}` : undefined}
-            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 cursor-pointer"
-          >
-            {sendingAll ? "Đang gửi..." : `Gửi phiếu lương (${sendable.length})`}
-          </button>
+          <PayslipSendAllButton list={payable} sender={sender} />
           <button onClick={handleLock} disabled={saving || payable.length === 0} className="px-3 py-1.5 rounded-lg bg-[#005BAC] text-white hover:bg-[#004a8c] disabled:opacity-40 cursor-pointer">
             {saving ? "Đang chốt..." : lockedAt ? "Chốt lại" : "Chốt lương tháng"}
           </button>
@@ -376,22 +424,8 @@ export default function PayrollCalcTab({ month, rows, contracts, levelOf, employ
                       <td className={td + " text-emerald-600 font-black"}>{vnd(s.net)}</td>
                       <td className="py-2.5 px-2 whitespace-nowrap text-[10px] font-bold">
                         <button onClick={() => exportSlips([l])} className="text-[#005BAC] hover:underline cursor-pointer mr-2">Excel</button>
-                        <button onClick={() => downloadPdf(l)} className="text-[#005BAC] hover:underline cursor-pointer mr-2">PDF</button>
-                        {!l.email || !payslipPassword(l.cccd) ? (
-                          <span className="text-amber-600" title="Cần email và số CCCD trong Hồ sơ nhân viên để gửi">Thiếu {!l.email ? "email" : "CCCD"}</span>
-                        ) : sendState[l.code]?.status === "sending" ? (
-                          <span className="text-slate-400">Đang gửi...</span>
-                        ) : sendState[l.code]?.status === "success" ? (
-                          <span className="text-emerald-600">✓ Đã gửi</span>
-                        ) : (
-                          <button
-                            onClick={() => (smtpConfig.user && smtpConfig.pass ? sendOne(l) : onNeedSmtp())}
-                            title={sendState[l.code]?.message || `Gửi tới ${l.email}`}
-                            className={`${sendState[l.code]?.status === "error" ? "text-rose-600" : "text-emerald-600"} hover:underline cursor-pointer`}
-                          >
-                            {sendState[l.code]?.status === "error" ? "Lỗi — gửi lại" : "Gửi mail"}
-                          </button>
-                        )}
+                        <button onClick={() => sender.downloadPdf(l)} className="text-[#005BAC] hover:underline cursor-pointer mr-2">PDF</button>
+                        <PayslipMailButton l={l} sender={sender} />
                       </td>
                     </>
                   )}
@@ -410,7 +444,7 @@ export default function PayrollCalcTab({ month, rows, contracts, levelOf, employ
       </div>
       {(() => {
         const l = previewCode ? lines.find(x => x.code === previewCode && x.slip) : undefined;
-        return l ? <PayslipPreview view={toView(l, month, settings)} onClose={() => setPreviewCode(null)} onPdf={() => downloadPdf(l)} /> : null;
+        return l ? <PayslipPreview view={toView(l, month, settings)} onClose={() => setPreviewCode(null)} onPdf={() => sender.downloadPdf(l)} /> : null;
       })()}
     </div>
   );

@@ -7692,7 +7692,11 @@ export default function CBPage() {
               )}
 
               {activeSubTab === "kpi_salary" && (
-                <PayrollKpiTab month={payrollMonth} rows={payrollRows} contracts={contracts} departments={deptLists.all} notify={notify} />
+                <PayrollKpiTab
+                  month={payrollMonth} rows={payrollRows} contracts={contracts} departments={deptLists.all}
+                  employees={employees} levelOf={getEmployeeLevel} settings={payrollSettings}
+                  smtpConfig={smtpConfig} onNeedSmtp={() => setShowEmailConfigModal(true)} notify={notify} askConfirm={askConfirm}
+                />
               )}
 
               {activeSubTab === "payroll_settings" && (
