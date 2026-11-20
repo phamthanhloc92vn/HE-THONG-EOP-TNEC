@@ -839,6 +839,7 @@ export default function CBPage() {
   const [leaveDeptFilter, setLeaveDeptFilter] = useState("all");
   const [regimeFilterFrom, setRegimeFilterFrom] = useState("");
   const [regimeFilterTo, setRegimeFilterTo] = useState("");
+  const [regimeDeptFilter, setRegimeDeptFilter] = useState("all");
 
   // Explanation Add Form states
   const [showExplanationAddForm, setShowExplanationAddForm] = useState(false);
@@ -4560,9 +4561,10 @@ export default function CBPage() {
     return leaves
       .filter(r => REGIME_LEAVE_TYPES.includes(r.type))
       .filter(r => hasFullAccess || r.name === currentUser?.name)
+      .filter(r => regimeDeptFilter === "all" || empDeptByName.get(normalizeText(r.name)) === regimeDeptFilter)
       .filter(r => !regimeFilterFrom || new Date(r.from) >= new Date(regimeFilterFrom))
       .filter(r => !regimeFilterTo || new Date(r.to) <= new Date(regimeFilterTo));
-  }, [leaves, hasFullAccess, currentUser, regimeFilterFrom, regimeFilterTo]);
+  }, [leaves, hasFullAccess, currentUser, regimeFilterFrom, regimeFilterTo, regimeDeptFilter, empDeptByName]);
 
   // Đang nghỉ hay đã đi làm lại suy ra từ mốc ngày của đơn, không lưu riêng trong DB
   const getRegimeState = (from: string, to: string) => {
@@ -4599,6 +4601,41 @@ export default function CBPage() {
       console.error("Error deleting regime leave:", err);
       notify("Lỗi khi xóa đơn nghỉ chế độ: " + err.message, "error");
     }
+  };
+
+  // Xoá tất cả lịch sử của tab chấm công đang mở — chỉ Admin. Xoá đúng các dòng đang
+  // hiện theo bộ lọc (phòng ban, từ ngày - đến ngày); không lọc = xoá hết.
+  const handleDeleteAllAttendance = async () => {
+    if (!currentUser?.isAdmin) return;
+    const cfg = ({
+      explanation: { label: "bản ghi giải trình", rows: filteredExplanations, table: "attendance_justifications", setRows: setExplanations, inDb: (r: any) => isUsingDbForExplanations && !!r.id },
+      leave: { label: "đơn nghỉ phép", rows: searchedLeaves, table: "tasks", setRows: setLeaves, inDb: (r: any) => !!r.id },
+      travel: { label: "lịch trình công tác", rows: filteredTravels, table: "business_trips", setRows: setTravels, inDb: (r: any) => typeof r.id === "string" && r.id.length > 8 },
+      regime: { label: "đơn nghỉ chế độ", rows: filteredRegimes, table: "tasks", setRows: setLeaves, inDb: (r: any) => !!r.id },
+    } as Record<string, { label: string; rows: any[]; table: string; setRows: (fn: (prev: any[]) => any[]) => void; inDb: (r: any) => boolean }>)[activeSubTab];
+    if (!cfg) return;
+    if (cfg.rows.length === 0) { notify(`Không có ${cfg.label} nào để xoá.`, "info"); return; }
+    if (!(await askConfirm(`Xoá ${cfg.rows.length} ${cfg.label} đang hiển thị theo bộ lọc? Dữ liệu sẽ bị xoá khỏi hệ thống và không thể khôi phục.`))) return;
+    const dbIds = cfg.rows.filter(cfg.inDb).map(r => r.id);
+    const deleted = new Set<string>();
+    try {
+      for (let i = 0; i < dbIds.length; i += 100) {
+        // `.select()` để đếm dòng thật sự bị xoá — RLS chặn thì Supabase trả 0 dòng, không báo lỗi
+        const { data, error } = await supabase.from(cfg.table).delete().in("id", dbIds.slice(i, i + 100)).select("id");
+        if (error) throw error;
+        (data || []).forEach(d => deleted.add(d.id));
+      }
+    } catch (err: any) {
+      console.error("Lỗi khi xoá tất cả:", err);
+      notify("Lỗi khi xoá: " + err.message, "error");
+    }
+    const removed = new Set(cfg.rows.filter(r => !cfg.inDb(r) || deleted.has(r.id)));
+    cfg.setRows(prev => prev.filter(r => !removed.has(r)));
+    if (activeSubTab === "explanation" && !isUsingDbForExplanations) {
+      localStorage.setItem("attendance_justifications", JSON.stringify(explanations.filter(r => !removed.has(r))));
+    }
+    const blocked = dbIds.length - deleted.size;
+    notify(blocked > 0 ? `Đã xoá ${removed.size} ${cfg.label}, ${blocked} dòng không xoá được (không có quyền hoặc lỗi).` : `Đã xoá ${removed.size} ${cfg.label}.`, blocked > 0 ? "warn" : "success");
   };
 
   // Tab BHXH: mỗi nhân viên 1 dòng từ HĐ có lương đóng BH (ưu tiên HĐLĐ thật như tab Hợp đồng).
@@ -5039,17 +5076,17 @@ export default function CBPage() {
               const dateFilterMap: Record<string, [string, (v: string) => void, string, (v: string) => void]> = {
                 machine: [machineFilterFrom, setMachineFilterFrom, machineFilterTo, setMachineFilterTo],
                 explanation: [explanationFilterFrom, setExplanationFilterFrom, explanationFilterTo, setExplanationFilterTo],
-                leave: [leaveFilterFrom, setLeaveFilterFrom, leaveFilterTo, setLeaveFilterTo],
                 travel: [travelFilterFrom, setTravelFilterFrom, travelFilterTo, setTravelFilterTo],
                 regime: [regimeFilterFrom, setRegimeFilterFrom, regimeFilterTo, setRegimeFilterTo]
               };
               const entry = dateFilterMap[activeSubTab];
               if (!entry) return null;
               const [fromVal, setFromVal, toVal, setToVal] = entry;
-              // Bộ lọc phòng ban — chỉ tab Thông tin giải trình & Công tác.
+              // Bộ lọc phòng ban — tab Thông tin giải trình, Công tác & Nghỉ chế độ.
               const deptFilterMap: Record<string, [string, (v: string) => void]> = {
                 explanation: [explanationDeptFilter, setExplanationDeptFilter],
                 travel: [travelDeptFilter, setTravelDeptFilter],
+                regime: [regimeDeptFilter, setRegimeDeptFilter],
               };
               const deptEntry = deptFilterMap[activeSubTab];
               return (
@@ -5118,6 +5155,16 @@ export default function CBPage() {
                     </button>
                   )}
                 </div>
+                {currentUser?.isAdmin && activeSubTab !== "machine" && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteAllAttendance}
+                    title="Xoá lịch sử theo phòng ban / từ ngày - đến ngày đang lọc (không lọc = xoá hết)"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[11px] font-bold transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+                  >
+                    <Trash2 size={13} /> Xóa tất cả
+                  </button>
+                )}
                 </div>
               );
             })()}
@@ -6631,8 +6678,7 @@ export default function CBPage() {
                         )}
                       </div>
 
-                      {/* Lọc theo ngày — chỉ có nghĩa ở tab Lịch sử nghỉ phép.
-                          Dùng chung state leaveFilterFrom/To với bộ lọc ngày ở đầu trang. */}
+                      {/* Lọc theo ngày — chỉ có nghĩa ở tab Lịch sử nghỉ phép. */}
                       {leaveTabMode === "history" && (
                         <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200/70 shrink-0">
                           <Calendar size={13} className="text-slate-400 shrink-0" />
@@ -6662,6 +6708,17 @@ export default function CBPage() {
                             </button>
                           )}
                         </div>
+                      )}
+
+                      {currentUser?.isAdmin && leaveTabMode === "history" && (
+                        <button
+                          type="button"
+                          onClick={handleDeleteAllAttendance}
+                          title="Xoá lịch sử nghỉ phép theo phòng ban / từ ngày - đến ngày đang lọc (không lọc = xoá hết)"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg cursor-pointer text-[10px] transition-all shadow-md shadow-rose-600/10 active:scale-95 shrink-0"
+                        >
+                          <Trash2 size={12} /> Xóa tất cả
+                        </button>
                       )}
 
                       {canBulkLeave && (
