@@ -18,7 +18,7 @@ import {
   CARRY_OVER_LAST_MONTH,
 } from "@/lib/annualLeave";
 import { isResignedRow } from "@/lib/resigned";
-import { useNoticeBox } from "@/components/ConfirmDialog";
+import { useNoticeBox, usePromptBox } from "@/components/ConfirmDialog";
 import GpsCheckinList from "./GpsCheckinList";
 import PayrollCalcTab from "@/components/cb/PayrollCalcTab";
 import PayrollKpiTab from "@/components/cb/PayrollKpiTab";
@@ -609,6 +609,7 @@ export default function CBPage() {
 
   // Hộp thông báo giữa màn hình — thay window.alert (dùng chung NoticeDialog).
   const { notify, noticeNode } = useNoticeBox();
+  const { askText, promptNode } = usePromptBox();
 
   // --- BENEFIT CLAIMS & HOLIDAY BONUS STATES ---
   const [benefitClaims, setBenefitClaims] = useState<any[]>([]);
@@ -2189,7 +2190,13 @@ export default function CBPage() {
   const handleDecideClaim = async (claimId: string, decision: "Đã duyệt" | "Từ chối" | "Đã chi") => {
     let reason = "";
     if (decision === "Từ chối") {
-      reason = (prompt("Nhập lý do từ chối (bắt buộc):") || "").trim();
+      // Bấm Huỷ thì onSubmit không chạy → dừng tại đây, không đổi gì
+      reason = await new Promise<string>(resolve => askText({
+        title: "Từ chối phiếu",
+        message: "Nhập lý do từ chối (bắt buộc):",
+        confirmLabel: "Từ chối",
+        onSubmit: (v) => resolve(v.trim()),
+      }));
       if (!reason) return;
     } else if (!(await askConfirm(`Xác nhận chuyển phiếu sang trạng thái "${decision}"?`))) {
       return;
@@ -10059,6 +10066,7 @@ export default function CBPage() {
 
       {/* Hộp thông báo giữa màn hình — thay window.alert */}
       {noticeNode}
+      {promptNode}
 
       {/* Popup xác nhận giữa màn hình — thay window.confirm/confirm của trình duyệt */}
       {confirmDialog && (

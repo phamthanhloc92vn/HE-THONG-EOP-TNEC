@@ -82,12 +82,14 @@ function tryDirectExcelParse(sheet: XLSX.WorkSheet): ExtractedEmployee[] | null 
           colMapping["date_of_birth"] = idx;
         } else if (cell === "sđt" || cell.includes("điện thoại") || cell === "số đt" || cell === "phone") {
           colMapping["phone"] = idx;
-        } else if (cell.includes("cccd") || cell.includes("cmnd") || cell === "identity") {
-          colMapping["cccd"] = idx;
         } else if (cell.includes("ngày cấp") || cell.includes("cccd_date")) {
           colMapping["cccd_date"] = idx;
         } else if (cell.includes("nơi cấp") || cell.includes("cccd_place")) {
           colMapping["cccd_place"] = idx;
+        } else if (cell.includes("cccd") || cell.includes("cmnd") || cell === "identity") {
+          colMapping["cccd"] = idx;
+        } else if (cell.includes("trạng thái") || cell === "status") {
+          colMapping["status"] = idx;
         } else if (cell.includes("thường trú") || cell.includes("địa chỉ tt") || cell.includes("permanent")) {
           colMapping["permanent_address"] = idx;
         } else if (cell.includes("tạm trú") || cell.includes("địa chỉ kt") || cell.includes("temporary") || cell.includes("địa chỉ trọ")) {
@@ -106,7 +108,7 @@ function tryDirectExcelParse(sheet: XLSX.WorkSheet): ExtractedEmployee[] | null 
     }
   }
 
-  if (headerRowIndex === -1 || !colMapping["name"]) {
+  if (headerRowIndex === -1 || colMapping["name"] === undefined) {
     return null;
   }
 
@@ -197,6 +199,7 @@ function tryDirectExcelParse(sheet: XLSX.WorkSheet): ExtractedEmployee[] | null 
     const emergency_contact_relationship = colMapping["emergency_contact_relationship"] !== undefined ? String(row[colMapping["emergency_contact_relationship"]] || "").trim() : "";
     const emergency_contact_phone = colMapping["emergency_contact_phone"] !== undefined ? String(row[colMapping["emergency_contact_phone"]] || "").trim() : "";
     const notes = colMapping["notes"] !== undefined ? String(row[colMapping["notes"]] || "").trim() : "";
+    const status = colMapping["status"] !== undefined ? String(row[colMapping["status"]] || "").trim() : "";
 
     parsedEmployees.push({
       employee_code,
@@ -217,7 +220,7 @@ function tryDirectExcelParse(sheet: XLSX.WorkSheet): ExtractedEmployee[] | null 
       emergency_contact_name,
       emergency_contact_relationship,
       emergency_contact_phone,
-      status: "Chính thức",
+      status: status || "Chính thức",
       notes
     });
   }
@@ -302,13 +305,11 @@ export async function POST(req: NextRequest) {
     const SYSTEM_PROMPT = buildSystemPrompt((await getDepartmentListsServer()).phongBan, tenantCfg.company_name, tenantCfg.company_short);
     const authHeader = req.headers.get("Authorization");
     const apiKey = (authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : null) || process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "Mã khoá OpenAI API Key chưa được cấu hình. Vui lòng nhập trong phần Cài đặt AI." },
-        { status: 400 }
-      );
-    }
+    // Chỉ cần key khi thật sự gọi AI — Excel cột chuẩn được đọc thẳng, không cần key
+    const missingKey = () => NextResponse.json(
+      { error: "Mã khoá OpenAI API Key chưa được cấu hình. Vui lòng nhập trong phần Cài đặt AI." },
+      { status: 400 }
+    );
 
     const form = await req.formData();
     const file = form.get("employee_file") as File | null;
@@ -318,7 +319,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Thiếu file danh sách cần phân tích." }, { status: 400 });
     }
 
-    const openai = new OpenAI({ apiKey });
+    const openai = apiKey ? new OpenAI({ apiKey }) : null;
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const fileType = file.name.toLowerCase();
 
@@ -427,6 +428,7 @@ Hãy trích xuất danh sách nhân viên dạng JSON chứa mảng 'employees'.
         },
       ];
     } else if (fileType.endsWith(".pdf")) {
+      if (!openai) return missingKey();
       const base64Pdf = fileBuffer.toString("base64");
       const model = resolveModel(req.headers.get("x-openai-model") || process.env.OPENAI_MODEL);
       try {
@@ -467,6 +469,7 @@ Hãy trích xuất danh sách nhân viên dạng JSON chứa mảng 'employees'.
       return NextResponse.json({ error: "Định dạng file không hỗ trợ. Sử dụng Excel (XLSX/XLS), Word (DOCX/DOC), PDF hoặc ảnh (PNG/JPG)." }, { status: 400 });
     }
 
+    if (!openai) return missingKey();
     const model = resolveModel(req.headers.get("x-openai-model") || process.env.OPENAI_MODEL);
     const completion = await openai.chat.completions.create({
       model,
