@@ -1502,6 +1502,7 @@ export default function CBPage() {
     congTac: number;
     nghiKhongLuong: number;
     tongNgayCong: number;
+    ngayAn: number; // số ngày tính PC tiền ăn — xem chú thích ở chỗ trả về
     hasDateMismatch: boolean;
   }
 
@@ -1523,6 +1524,7 @@ export default function CBPage() {
     const rows: TimesheetMatrixRow[] = srcEmployees.map(emp => {
       const days: string[] = [];
       let vanPhong = 0, phepCoLuong = 0, congTac = 0, nghiKhongLuong = 0;
+      let ngayOnline = 0, anBuPhepNua = 0; // chỉ để tính ngày ăn
 
       // Công chỉ được xếp theo đúng ngày đọc từ cột "Ngày" của file Excel. Nếu không khớp
       // được ngày nào trong tháng thì báo cho HCNS biết, tuyệt đối không đoán theo vị trí dòng.
@@ -1633,6 +1635,7 @@ export default function CBPage() {
               // ngày cũng vào đây: họ vẫn được trả đủ công cho phần không đi làm.
               tag = isHolidayLeave ? "L/2" : "P/2";
               phepCoLuong += 1 - wd;
+              anBuPhepNua += 1 - wd;
             }
           } else {
             tag = "x";
@@ -1673,6 +1676,7 @@ export default function CBPage() {
               if (t.includes("online")) {
                 tag = "OL";
                 vanPhong += 1;
+                ngayOnline += 1;
               // BHXH trả lương, công ty KHÔNG trả -> không cộng vào ngày công.
               // Thai sản (TS) và ốm chế độ BHXH (OM) chỉ hiện ký hiệu trên bảng công.
               } else if (t.includes("thai san")) {
@@ -1699,7 +1703,7 @@ export default function CBPage() {
                 // Ngày đó có dòng trong file nhưng cột "Công" bằng 0 nên nhánh chấm
                 // công máy ở trên không bắt được — lấy chính dấu vết quét thẻ làm bằng
                 // chứng đi làm. Không quét thẻ thì giữ 0.5, phải giải trình mới đủ ngày.
-                if (hasSwipeOfDay) vanPhong += 0.5;
+                if (hasSwipeOfDay) { vanPhong += 0.5; anBuPhepNua += 0.5; }
               } else {
                 // Phép năm, phép tang, kết hôn, nghỉ bù, nghỉ lễ... đều cty trả lương -> tính công.
                 // Nghỉ lễ ghi "L" thay cho "P", số công y hệt.
@@ -1722,6 +1726,9 @@ export default function CBPage() {
         congTac,
         nghiKhongLuong,
         tongNgayCong: vanPhong + congTac + phepCoLuong,
+        // Ngày ăn (user chốt 26/11/2026): ngày có mặt VP, KHÔNG tính làm online (OL);
+        // ngày làm nửa buổi + phép nửa buổi (có đi làm) tính đủ 1 ngày ăn.
+        ngayAn: vanPhong - ngayOnline + anBuPhepNua,
         hasDateMismatch
       };
     });

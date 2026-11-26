@@ -62,7 +62,7 @@ export function allowanceTier(levelLabel: string): AllowanceTier {
   if (levelLabel === "Quản lý sơ cấp") return "junior";
   return "staff";
 }
-// officeDays = ngày đi làm thực tế (có mặt VP, gồm OL; không tính phép/lễ/công tác)
+// officeDays = ngày ăn: có mặt VP (không tính OL, phép, lễ, công tác); nửa buổi làm + nửa buổi phép = 1
 export function computeAllowances(st: PayrollSettings, tier: AllowanceTier, officeDays: number) {
   return { lunch: Math.round(st.lunch_per_day * officeDays), fuel: st[`fuel_${tier}`], phone: st[`phone_${tier}`] };
 }

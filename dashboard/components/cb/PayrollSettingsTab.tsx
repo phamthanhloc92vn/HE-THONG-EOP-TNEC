@@ -133,7 +133,7 @@ export default function PayrollSettingsTab({ settings, onSaved, notify }: {
           Tiền ăn (đ/ngày đi làm thực tế)
           <input value={vnd(draft.lunch_per_day)} onChange={e => set("lunch_per_day", toNum(e.target.value))} className={input} />
         </label>
-        <p className="text-[10px] text-slate-400">Tiền ăn = đơn giá × số ngày có mặt văn phòng trong tháng (gồm làm online thứ 7; không tính phép, lễ, công tác).</p>
+        <p className="text-[10px] text-slate-400">Tiền ăn = đơn giá × số ngày có mặt văn phòng trong tháng (không tính làm online, phép, lễ, công tác; ngày làm nửa buổi + phép nửa buổi tính đủ 1 ngày).</p>
         <table className="w-full max-w-2xl border-collapse">
           <thead>
             <tr className="bg-emerald-600 text-white text-[10px] uppercase font-extrabold">

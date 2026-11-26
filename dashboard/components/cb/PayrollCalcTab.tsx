@@ -10,7 +10,7 @@ import { allowanceTier, computeAllowances, computeKpiBonus, computePayslip, KpiC
 import { KpiEntry, usePayrollKpi } from "./usePayrollKpi";
 import { payslipRows, payslipPdfDoc, payslipPassword, PayslipView } from "@/lib/payslip";
 
-export type TimesheetRow = { employeeCode: string; name: string; department: string; days: string[]; vanPhong: number; tongNgayCong: number };
+export type TimesheetRow = { employeeCode: string; name: string; department: string; days: string[]; vanPhong: number; tongNgayCong: number; ngayAn: number };
 export type ContractLite = {
   id: string; employee_code?: string; employee_name?: string; contract_number: string; sign_date: string;
   base_salary_insurance?: number | null; performance_bonus?: number | null; dependents?: number | null;
@@ -69,8 +69,8 @@ export function buildLine(r: TimesheetRow, c: {
   const input: PayslipInput = {
     baseSalary: contract.base_salary_insurance, performanceBonus: contract.performance_bonus || 0,
     workdays: r.tongNgayCong, holidays: holidayDays(r.days),
-    // Cơm theo ngày đi làm thực tế (cột VP, gồm OL); xăng/ĐT cố định theo cấp của chức vụ hiện tại
-    ...computeAllowances(c.settings, allowanceTier(c.levelOf(base.role)), r.vanPhong),
+    // Cơm theo ngày ăn (có mặt VP, không tính OL, nửa buổi + phép nửa buổi = 1); xăng/ĐT cố định theo cấp của chức vụ hiện tại
+    ...computeAllowances(c.settings, allowanceTier(c.levelOf(base.role)), r.ngayAn),
     dependents: m.dependents ?? contract.dependents ?? 0,
     otTaxFree: m.otTaxFree || 0, otTaxable: m.otTaxable || 0, backPay: m.backPay || 0, clawback: m.clawback || 0,
   };
