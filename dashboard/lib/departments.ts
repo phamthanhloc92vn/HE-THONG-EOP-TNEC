@@ -50,6 +50,10 @@ const DEFAULT_BDH = [
 
 const DEFAULT_BAN_GIAM_DOC = ["Giám đốc", "Phó Giám đốc"];
 
+// Tên dòng project_locations chứa toạ độ chấm công GPS dùng chung cho mọi phòng ban
+// (khối Văn phòng). Khớp hằng trong trigger gps_checkins_validate (migration 171).
+export const OFFICE_LOCATION_NAME = "Văn phòng công ty";
+
 export type DepartmentLists = {
   phongBan: string[];      // 9 phòng ban chức năng
   bdh: string[];           // Ban điều hành dự án

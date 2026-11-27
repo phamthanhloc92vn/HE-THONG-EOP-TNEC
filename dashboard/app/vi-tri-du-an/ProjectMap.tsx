@@ -7,7 +7,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { supabase } from "@/lib/supabase";
-import { fetchDepartments } from "@/lib/departments";
+import { fetchDepartments, OFFICE_LOCATION_NAME } from "@/lib/departments";
 import { useCurrentUser } from "@/lib/useCurrentUser";
 import {
   Search,
@@ -198,8 +198,10 @@ export default function ProjectMap() {
       loc: byBdh.get(normalize(bdhName)) || null,
     }));
 
-    // Dòng project_locations có bdh_name không nằm trong danh sách BĐH -> vẫn hiển thị.
+    // Dòng project_locations có bdh_name không nằm trong danh sách BĐH -> vẫn hiển thị
+    // (trừ toạ độ chấm công Văn phòng công ty — không phải dự án).
     located.forEach((l) => {
+      if (l.bdh_name === OFFICE_LOCATION_NAME) return;
       if (!depts.bdh.some((b) => normalize(b) === normalize(l.bdh_name))) {
         merged.push({ bdhName: l.bdh_name, loc: l });
       }

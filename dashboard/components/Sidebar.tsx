@@ -137,8 +137,9 @@ function SidebarLinks({ isApprover, pathname, setSidebarOpen }: { isApprover: bo
   const { url: pdfEditUrl } = usePdfEditLink();
   const canEditPdfLink = !currentUser.loading && (currentUser.isAdmin || currentUser.perms.canManageNews);
   const isPdfEditActive = pathname === "/pdf-edit";
-  // "Chấm công GPS" chỉ hiện cho Admin hoặc nhân sự thuộc một Ban điều hành.
-  const showGpsCheckin = !currentUser.loading && (currentUser.isAdmin || deps.bdh.includes(currentUser.department));
+  // "Chấm công GPS" chỉ hiện cho Admin hoặc nhân sự thuộc một Ban điều hành / phòng ban (khối Văn phòng).
+  const showGpsCheckin = !currentUser.loading && (currentUser.isAdmin ||
+    deps.bdh.includes(currentUser.department) || deps.phongBan.includes(currentUser.department));
 
   const navItems = [
     { label: "Dashboard", href: "/", icon: LayoutDashboard },

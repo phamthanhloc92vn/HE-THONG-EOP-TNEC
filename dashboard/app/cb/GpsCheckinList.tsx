@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/apiClient";
-import { useDepartments } from "@/lib/departments";
+import { useDepartments, OFFICE_LOCATION_NAME } from "@/lib/departments";
 import { useConfirmBox, useNoticeBox } from "@/components/ConfirmDialog";
 import {
   Fingerprint, Folder, FolderOpen, Eye, Download, Trash2, Search, Send,
@@ -164,6 +164,11 @@ export default function GpsCheckinList({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []); // tải 1 lần khi mở card
 
+  // Ca chuẩn: phòng ban dùng ca của "Văn phòng công ty", BĐH dùng ca của chính BĐH.
+  const shiftOf = useCallback((unit: string) =>
+    shiftMap[deps.phongBan.includes(unit) ? OFFICE_LOCATION_NAME : unit] || { in: 480, out: 1020 },
+  [shiftMap, deps.phongBan]);
+
   // ─── Lọc theo BĐH + tìm kiếm (áp cho cả cây tháng lẫn bảng) ───
   const matchesFilter = useCallback((r: Checkin) => {
     if (bdhFilter && r.bdh_name !== bdhFilter) return false;
@@ -213,7 +218,7 @@ export default function GpsCheckinList({
         return (dc && gc && dc === gc) || (!!e.name && normName(e.name) === normName(last.employee_name));
       });
       const bdh = last.bdh_name;
-      const sh = shiftMap[bdh] || { in: 480, out: 1020 };
+      const sh = shiftOf(bdh);
       // gom theo ngày
       const byDay = new Map<string, Checkin[]>();
       list.forEach((r) => {
@@ -269,7 +274,7 @@ export default function GpsCheckinList({
       });
     });
     return out.sort((a, b) => a.name.localeCompare(b.name, "vi"));
-  }, [filteredRows, shiftMap, directory]);
+  }, [filteredRows, shiftOf, directory]);
 
   const summaries = useMemo(() => summarizeMonth(month), [summarizeMonth, month]);
 
@@ -363,7 +368,7 @@ export default function GpsCheckinList({
     const header = ["STT", "Mã nhân viên", "Tên nhân viên", "Phòng ban", "Ngày", "Thứ", "Giờ vào", "Giờ ra", "Trễ", "Sớm", "Công", "Tổng giờ", "Tăng ca", "Tổng toàn bộ", "Ca"];
     const lines: (string | number)[][] = [];
     summarizeMonth(mk).forEach((s) => {
-      const sh = shiftMap[s.bdh] || { in: 480, out: 1020 };
+      const sh = shiftOf(s.bdh);
       for (let d = 1; d <= daysInMonth; d++) {
         const dk = `${mk}-${String(d).padStart(2, "0")}`;
         const det = s.details.find((x) => x.dateKey === dk);
@@ -437,7 +442,7 @@ export default function GpsCheckinList({
           <div>
             <h3 className="font-heading font-extrabold text-slate-800 text-sm">DANH SÁCH NHÂN VIÊN CHẤM CÔNG GPS</h3>
             <p className="text-slate-400 text-[10px] font-semibold mt-0.5">
-              Điểm danh tại công trường (Ban điều hành) — tổng hợp ngày công & gửi báo cáo email.
+              Điểm danh tại Văn phòng công ty & công trường (Ban điều hành) — tổng hợp ngày công & gửi báo cáo email.
             </p>
           </div>
         </div>
@@ -485,8 +490,13 @@ export default function GpsCheckinList({
           onChange={(e) => setBdhFilter(e.target.value)}
           className="text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 focus:outline-none focus:border-[#00AEEF]"
         >
-          <option value="">Tất cả Ban điều hành</option>
-          {deps.bdh.map((b) => <option key={b} value={b}>{b}</option>)}
+          <option value="">Tất cả phòng ban / BĐH</option>
+          <optgroup label="Văn phòng công ty">
+            {deps.phongBan.map((b) => <option key={b} value={b}>{b}</option>)}
+          </optgroup>
+          <optgroup label="Ban điều hành">
+            {deps.bdh.map((b) => <option key={b} value={b}>{b}</option>)}
+          </optgroup>
         </select>
       </div>
 
@@ -585,7 +595,7 @@ export default function GpsCheckinList({
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">
                       <th className="py-2.5 px-3">Mã NV / Họ tên</th>
-                      <th className="py-2.5 px-3">Ban điều hành</th>
+                      <th className="py-2.5 px-3">Phòng ban / BĐH</th>
                       <th className="py-2.5 px-2 text-center">Công</th>
                       <th className="py-2.5 px-2 text-center">Trễ</th>
                       <th className="py-2.5 px-2 text-center">Sớm</th>
@@ -661,7 +671,7 @@ export default function GpsCheckinList({
                           <th className="py-1.5 px-3">Ngày</th>
                           <th className="py-1.5 px-2 text-center">Vào</th>
                           <th className="py-1.5 px-2 text-center">Ra</th>
-                          <th className="py-1.5 px-2 text-center">Cách BĐH</th>
+                          <th className="py-1.5 px-2 text-center">Khoảng cách</th>
                           <th className="py-1.5 px-2 text-center">Ảnh</th>
                         </tr>
                       </thead>

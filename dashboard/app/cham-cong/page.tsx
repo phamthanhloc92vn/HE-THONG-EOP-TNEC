@@ -17,7 +17,8 @@ import Header from "@/components/Header";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/useCurrentUser";
 import { emailFieldMatches } from "@/lib/emailMatch";
-import { useDepartments } from "@/lib/departments";
+import { useDepartments, OFFICE_LOCATION_NAME } from "@/lib/departments";
+import { parseLatLng } from "@/app/vi-tri-du-an/LocationEditor";
 import {
   MapPin, Navigation, Camera, Loader2, LogIn, LogOut, AlertTriangle,
   CheckCircle2, X, RefreshCw, ShieldAlert, SwitchCamera,
@@ -57,12 +58,17 @@ export default function GpsCheckinPage() {
   const user = useCurrentUser();
   const deps = useDepartments();
 
-  // BĐH mục tiêu: phòng của người dùng nếu là BĐH; Admin (hoặc người không thuộc
-  // BĐH) được chọn tay để kiểm thử/hỗ trợ.
+  // Đơn vị mục tiêu: BĐH hoặc phòng ban (khối Văn phòng) của người dùng; Admin
+  // (hoặc người chưa xếp đơn vị) được chọn tay để kiểm thử/hỗ trợ.
   const [selectedBdh, setSelectedBdh] = useState<string>("");
-  const isBdhStaff = !user.loading && deps.bdh.includes(user.department);
+  const isBdhStaff = !user.loading &&
+    (deps.bdh.includes(user.department) || deps.phongBan.includes(user.department));
   const canPick = !user.loading && (user.isAdmin || !isBdhStaff);
   const activeBdh = isBdhStaff ? user.department : selectedBdh;
+  // Phòng ban dùng chung toạ độ "Văn phòng công ty"; BĐH dùng toạ độ của chính BĐH.
+  const isOffice = deps.phongBan.includes(activeBdh);
+  const locName = isOffice ? OFFICE_LOCATION_NAME : activeBdh;
+  const canEditOffice = !user.loading && user.isAdmin;
 
   const [loc, setLoc] = useState<LocRow | null>(null);
   const [locLoading, setLocLoading] = useState(false);
@@ -136,7 +142,39 @@ export default function GpsCheckinPage() {
     setDoneOut(dout);
   }, [user.loading, user.email]);
 
-  useEffect(() => { if (activeBdh) loadLoc(activeBdh); }, [activeBdh, loadLoc]);
+  useEffect(() => { if (locName) loadLoc(locName); }, [locName, loadLoc]);
+
+  // ─── Ghim toạ độ Văn phòng công ty (Admin / cờ quản lý vị trí dự án) ───
+  const [officeForm, setOfficeForm] = useState({ link: "", radius: "100", shiftIn: "08:00", shiftOut: "17:00" });
+  const [officeMsg, setOfficeMsg] = useState("");
+  const [officeSaving, setOfficeSaving] = useState(false);
+  useEffect(() => {
+    if (!isOffice || !loc) return;
+    setOfficeForm({
+      link: `${loc.lat}, ${loc.lng}`,
+      radius: String(loc.radius_m ?? 100),
+      shiftIn: loc.shift_in || "08:00",
+      shiftOut: loc.shift_out || "17:00",
+    });
+  }, [isOffice, loc]);
+
+  async function saveOffice() {
+    const coords = parseLatLng(officeForm.link);
+    if (!coords) { setOfficeMsg("Không đọc được toạ độ. Dán link Google Maps đầy đủ hoặc dạng \"10.77, 106.70\"."); return; }
+    setOfficeSaving(true);
+    const { error } = await supabase.from("project_locations").upsert({
+      bdh_name: OFFICE_LOCATION_NAME,
+      name: OFFICE_LOCATION_NAME,
+      lat: coords[0],
+      lng: coords[1],
+      radius_m: Math.max(10, parseInt(officeForm.radius) || 100),
+      shift_in: officeForm.shiftIn,
+      shift_out: officeForm.shiftOut,
+    }, { onConflict: "bdh_name" });
+    setOfficeSaving(false);
+    setOfficeMsg(error ? error.message : "Đã lưu vị trí Văn phòng công ty.");
+    if (!error) loadLoc(OFFICE_LOCATION_NAME);
+  }
   useEffect(() => { loadToday(); }, [loadToday]);
 
   // ─── Dọn camera khi rời trang ───
@@ -198,7 +236,12 @@ export default function GpsCheckinPage() {
   // ─── Bấm VÀO / RA: lấy GPS, chặn ngoài vùng, mở camera ───
   function startCheckin(kind: Kind) {
     setErr(""); setOkMsg("");
-    if (!loc) { setErr("BĐH chưa được ghim toạ độ — báo HR/Admin cập nhật ở Vị trí dự án."); return; }
+    if (!loc) {
+      setErr(isOffice
+        ? "Văn phòng công ty chưa được ghim toạ độ — báo HR/Admin cập nhật tại trang này."
+        : "BĐH chưa được ghim toạ độ — báo HR/Admin cập nhật ở Vị trí dự án.");
+      return;
+    }
     if (!navigator.geolocation) { setErr("Thiết bị không hỗ trợ định vị GPS."); return; }
     const radius = loc.radius_m ?? 100;
     setPhase("locating");
@@ -209,11 +252,11 @@ export default function GpsCheckinPage() {
         const d = distanceM(latitude, longitude, loc.lat, loc.lng);
         setDist(d);
         if (accuracy > 100) {
-          setAlertMsg(`Tín hiệu GPS quá yếu (sai số ~${Math.round(accuracy)}m).\n\nRa nơi thoáng, bật GPS độ chính xác cao rồi thử lại.`);
+          setAlertMsg(`Bạn đang cách ${isOffice ? "Văn phòng công ty" : "vị trí BĐH"} ~${Math.round(d)}m (bán kính ${radius}m).\n\nTín hiệu GPS quá yếu (sai số ~${Math.round(accuracy)}m). Ra nơi thoáng, bật GPS độ chính xác cao rồi thử lại.`);
           setPhase("idle"); return;
         }
         if (d > radius) {
-          setAlertMsg(`Bạn đang cách vị trí BĐH ~${Math.round(d)}m, ngoài bán kính ${radius}m.\n\nHệ thống KHÔNG ghi nhận lượt chấm ngoài vùng.`);
+          setAlertMsg(`Bạn đang cách ${isOffice ? "Văn phòng công ty" : "vị trí BĐH"} ~${Math.round(d)}m, ngoài bán kính ${radius}m.\n\nHệ thống KHÔNG ghi nhận lượt chấm ngoài vùng.`);
           setPhase("idle"); return;
         }
         openCamera(kind);
@@ -244,7 +287,7 @@ export default function GpsCheckinPage() {
         `${activeBdh}`,
         `${new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(now)}`,
         `GPS: ${gps.lat.toFixed(6)}, ${gps.lng.toFixed(6)} (±${Math.round(gps.acc)}m)`,
-        `Cách BĐH: ~${Math.round(dist ?? 0)}m`,
+        `Cách ${isOffice ? "VP" : "BĐH"}: ~${Math.round(dist ?? 0)}m`,
       ];
       const pad = Math.round(w * 0.03);
       const fs = Math.max(16, Math.round(w * 0.032));
@@ -318,7 +361,7 @@ export default function GpsCheckinPage() {
     <div className="flex min-h-screen bg-[#F7F9FC]">
       <Sidebar />
       <div className="ml-0 lg:ml-60 flex-1 flex flex-col min-w-0">
-        <Header title="Chấm công GPS" subtitle="Điểm danh tại công trường bằng GPS + ảnh" />
+        <Header title="Chấm công GPS" subtitle="Điểm danh tại công trường / văn phòng bằng GPS + ảnh" />
         <main className="flex-1 p-4 sm:p-6 flex justify-center">
           <div className="w-full max-w-md space-y-4">
 
@@ -327,10 +370,10 @@ export default function GpsCheckinPage() {
                 <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto">
                   <ShieldAlert size={26} />
                 </div>
-                <h3 className="font-heading font-extrabold text-slate-800 text-sm">Không thuộc Ban điều hành</h3>
+                <h3 className="font-heading font-extrabold text-slate-800 text-sm">Chưa thuộc phòng ban / BĐH</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Chấm công GPS dành cho nhân sự tại các Ban điều hành dự án. Tài khoản của bạn
-                  ({user.department || "chưa xếp phòng"}) không thuộc BĐH nào.
+                  Chấm công GPS dành cho nhân sự Văn phòng công ty và các Ban điều hành dự án. Tài khoản của bạn
+                  ({user.department || "chưa xếp phòng"}) không thuộc phòng ban / BĐH nào.
                 </p>
               </div>
             ) : (
@@ -339,15 +382,20 @@ export default function GpsCheckinPage() {
                 {canPick && (
                   <div className="glass bg-white rounded-2xl p-4 border border-slate-200/50 shadow-premium space-y-2">
                     <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
-                      <MapPin size={12} className="text-[#005BAC]" /> Chọn Ban điều hành
+                      <MapPin size={12} className="text-[#005BAC]" /> Chọn phòng ban / Ban điều hành
                     </label>
                     <select
                       value={selectedBdh}
                       onChange={(e) => setSelectedBdh(e.target.value)}
                       className="w-full text-sm font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#00AEEF]"
                     >
-                      <option value="">-- Chọn BĐH --</option>
-                      {deps.bdh.map((b) => <option key={b} value={b}>{b}</option>)}
+                      <option value="">-- Chọn đơn vị --</option>
+                      <optgroup label="Văn phòng công ty">
+                        {deps.phongBan.map((b) => <option key={b} value={b}>{b}</option>)}
+                      </optgroup>
+                      <optgroup label="Ban điều hành">
+                        {deps.bdh.map((b) => <option key={b} value={b}>{b}</option>)}
+                      </optgroup>
                     </select>
                   </div>
                 )}
@@ -360,8 +408,9 @@ export default function GpsCheckinPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-heading font-extrabold text-slate-800 text-sm truncate">
-                        {activeBdh || "Chưa chọn BĐH"}
+                        {activeBdh || "Chưa chọn đơn vị"}
                       </p>
+                      {isOffice && <p className="text-[10px] text-slate-400 font-semibold">{OFFICE_LOCATION_NAME}</p>}
                       {locLoading ? (
                         <p className="text-[11px] text-slate-400 font-semibold flex items-center gap-1 mt-0.5">
                           <Loader2 size={11} className="animate-spin" /> Đang tải vị trí…
@@ -377,7 +426,7 @@ export default function GpsCheckinPage() {
                       )}
                     </div>
                     <button
-                      onClick={() => { loadLoc(activeBdh); loadToday(); }}
+                      onClick={() => { loadLoc(locName); loadToday(); }}
                       className="p-2 text-slate-400 hover:text-[#005BAC] hover:bg-blue-50 rounded-xl transition-all"
                       title="Tải lại"
                     >
@@ -432,10 +481,45 @@ export default function GpsCheckinPage() {
                   )}
                 </div>
 
-                <p className="text-[10px] text-slate-400 text-center leading-relaxed px-2">
-                  Cần bật <b>HTTPS</b>, quyền <b>định vị</b> và <b>camera</b>. Lượt chấm ngoài bán kính
-                  sẽ không được ghi nhận. Mỗi buổi (vào/ra) chỉ chấm một lần trong ngày.
-                </p>
+                {/* Ghim vị trí Văn phòng công ty (dùng chung mọi phòng ban) */}
+                {isOffice && canEditOffice && (
+                  <div className="glass bg-white rounded-2xl p-4 border border-slate-200/50 shadow-premium space-y-2.5">
+                    <p className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                      <MapPin size={12} className="text-[#005BAC]" /> Vị trí {OFFICE_LOCATION_NAME} (áp cho mọi phòng ban)
+                    </p>
+                    <input
+                      value={officeForm.link}
+                      onChange={(e) => setOfficeForm((f) => ({ ...f, link: e.target.value }))}
+                      placeholder="Dán link Google Maps hoặc toạ độ 10.77, 106.70"
+                      className="w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-[#00AEEF]"
+                    />
+                    <div className="grid grid-cols-3 gap-2">
+                      <label className="text-[10px] font-bold text-slate-400">Bán kính (m)
+                        <input type="number" min={10} value={officeForm.radius}
+                          onChange={(e) => setOfficeForm((f) => ({ ...f, radius: e.target.value }))}
+                          className="mt-1 w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:border-[#00AEEF]" />
+                      </label>
+                      <label className="text-[10px] font-bold text-slate-400">Giờ vào
+                        <input type="time" value={officeForm.shiftIn}
+                          onChange={(e) => setOfficeForm((f) => ({ ...f, shiftIn: e.target.value }))}
+                          className="mt-1 w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:border-[#00AEEF]" />
+                      </label>
+                      <label className="text-[10px] font-bold text-slate-400">Giờ ra
+                        <input type="time" value={officeForm.shiftOut}
+                          onChange={(e) => setOfficeForm((f) => ({ ...f, shiftOut: e.target.value }))}
+                          className="mt-1 w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:border-[#00AEEF]" />
+                      </label>
+                    </div>
+                    <button
+                      onClick={saveOffice}
+                      disabled={officeSaving}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#005BAC] hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs"
+                    >
+                      {officeSaving ? <Loader2 size={13} className="animate-spin" /> : <MapPin size={13} />} Lưu vị trí văn phòng
+                    </button>
+                    {officeMsg && <p className="text-[11px] font-semibold text-slate-500">{officeMsg}</p>}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -473,7 +557,7 @@ export default function GpsCheckinPage() {
             />
             <div className="absolute bottom-3 left-3 right-3 text-white text-[11px] font-semibold bg-black/50 rounded-xl px-3 py-2 space-y-0.5">
               <p>{activeBdh}</p>
-              {gps && <p>GPS: {gps.lat.toFixed(6)}, {gps.lng.toFixed(6)} · cách BĐH ~{Math.round(dist ?? 0)}m</p>}
+              {gps && <p>GPS: {gps.lat.toFixed(6)}, {gps.lng.toFixed(6)} · cách {isOffice ? "VP" : "BĐH"} ~{Math.round(dist ?? 0)}m</p>}
             </div>
           </div>
           <div className="p-5 flex justify-center bg-black">
