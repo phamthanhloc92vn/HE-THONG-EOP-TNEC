@@ -560,6 +560,11 @@ export default function GpsCheckinPage() {
               {gps && <p>GPS: {gps.lat.toFixed(6)}, {gps.lng.toFixed(6)} · cách {isOffice ? "VP" : "BĐH"} ~{Math.round(dist ?? 0)}m</p>}
             </div>
           </div>
+          {err && (
+            <p className="flex items-start gap-1.5 px-5 pt-3 bg-black text-[12px] font-semibold text-rose-400">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" /> {err}
+            </p>
+          )}
           <div className="p-5 flex justify-center bg-black">
             <button
               onClick={capture}
